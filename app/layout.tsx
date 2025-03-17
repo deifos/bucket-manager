@@ -2,6 +2,8 @@ import type React from "react";
 import "@/app/globals.css";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,14 +23,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <style
+        {/* <style
           dangerouslySetInnerHTML={{
             __html: `
           html { color-scheme: light; }
         `,
           }}
-        />
+        /> */}
       </head>
+
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
@@ -36,15 +39,14 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <SidebarProvider>
+            <AppSidebar />
+            <SidebarTrigger />
+
+            <main>{children}</main>
+          </SidebarProvider>
         </ThemeProvider>
       </body>
     </html>
   );
 }
-
-import "./globals.css";
-
-export const metadata = {
-  generator: "v0.dev",
-};
