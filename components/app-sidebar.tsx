@@ -1,4 +1,4 @@
-import { Calendar, Home, Inbox, Search, Settings } from "lucide-react";
+import { CloudCog, Database } from "lucide-react";
 
 import {
   Sidebar,
@@ -11,56 +11,66 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 
-// Menu items.
-const items = [
-  {
-    title: "Home",
-    url: "#",
-    icon: Home,
-  },
-  {
-    title: "Inbox",
-    url: "#",
-    icon: Inbox,
-  },
-  {
-    title: "Calendar",
-    url: "#",
-    icon: Calendar,
-  },
-  {
-    title: "Search",
-    url: "#",
-    icon: Search,
-  },
-  {
-    title: "Settings",
-    url: "#",
-    icon: Settings,
-  },
-];
+// SafeBucketConfig interface for client-side use
+interface SafeBucketConfig {
+  id: string;
+  name: string;
+  provider: "r2" | "s3";
+}
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  buckets?: SafeBucketConfig[];
+  selectedBucketId?: string | null;
+  onSelectBucket?: (bucketId: string) => void;
+}
+
+export function AppSidebar({
+  buckets,
+  selectedBucketId,
+  onSelectBucket,
+}: AppSidebarProps = {}) {
   return (
     <Sidebar>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Application</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Show bucket selection only if bucket data is provided */}
+        {buckets && buckets.length > 0 && onSelectBucket ? (
+          <SidebarGroup>
+            <SidebarGroupLabel>Storage Buckets</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {buckets.map((bucket) => (
+                  <SidebarMenuItem key={bucket.id}>
+                    <SidebarMenuButton
+                      onClick={() => onSelectBucket(bucket.id)}
+                      className={
+                        selectedBucketId === bucket.id ? "bg-muted" : ""
+                      }
+                    >
+                      {bucket.provider === "r2" ? (
+                        <CloudCog size={18} />
+                      ) : (
+                        <Database size={18} />
+                      )}
+                      <span>{bucket.name}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">
+                        {bucket.provider.toUpperCase()}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+          <SidebarGroup>
+            <SidebarGroupLabel>Bucket Manager</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="px-4 py-2 text-sm text-muted-foreground">
+                No buckets available
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
     </Sidebar>
   );

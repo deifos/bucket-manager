@@ -3,7 +3,8 @@ import "@/app/globals.css";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
+import { AppSidebarProvider } from "@/components/sidebar-context";
+import { SidebarWithContext } from "@/components/sidebar-with-context";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -22,16 +23,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* <style
-          dangerouslySetInnerHTML={{
-            __html: `
-          html { color-scheme: light; }
-        `,
-          }}
-        /> */}
-      </head>
-
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans`}>
         <ThemeProvider
           attribute="class"
@@ -39,12 +30,14 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <SidebarProvider>
-            <AppSidebar />
-            <SidebarTrigger />
+          <AppSidebarProvider>
+            <SidebarProvider>
+              <SidebarWithContext />
+              <SidebarTrigger />
 
-            <main>{children}</main>
-          </SidebarProvider>
+              <main>{children}</main>
+            </SidebarProvider>
+          </AppSidebarProvider>
         </ThemeProvider>
       </body>
     </html>

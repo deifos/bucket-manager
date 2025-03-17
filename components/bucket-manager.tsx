@@ -57,7 +57,20 @@ interface FileObject {
   thumbnailUrl: string | null;
 }
 
-export function BucketManager() {
+// Define props interface for BucketManager
+interface BucketManagerProps {
+  externalFiles?: FileObject[];
+  externalIsLoading?: boolean;
+  onRefresh?: () => void;
+  bucketId?: string;
+}
+
+export function BucketManager({
+  externalFiles,
+  externalIsLoading,
+  onRefresh,
+  bucketId,
+}: BucketManagerProps = {}) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,13 +86,27 @@ export function BucketManager() {
     setIsMounted(true);
   }, []);
 
+  // Use external files when provided
+  useEffect(() => {
+    if (externalFiles) {
+      setFiles(externalFiles);
+    }
+  }, [externalFiles]);
+
+  // Use external loading state when provided
+  useEffect(() => {
+    if (externalIsLoading !== undefined) {
+      setIsLoading(externalIsLoading);
+    }
+  }, [externalIsLoading]);
+
   // Fetch files when component mounts (client-side only)
   useEffect(() => {
-    if (isMounted) {
+    if (isMounted && !externalFiles) {
       setIsLoading(true);
       fetchFiles();
     }
-  }, [isMounted]);
+  }, [isMounted, externalFiles]);
 
   const fetchFiles = async () => {
     setIsLoading(true);
@@ -127,7 +154,12 @@ export function BucketManager() {
   };
 
   const handleRefresh = () => {
-    fetchFiles();
+    // Use provided refresh function if available
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      fetchFiles();
+    }
   };
 
   const handleDelete = async () => {
@@ -138,7 +170,11 @@ export function BucketManager() {
         .map((file) => file.name);
 
       // Call the API to delete files
-      const response = await fetch("/api/objects/delete-batch", {
+      const endpoint = bucketId
+        ? `/api/buckets/${bucketId}/objects/delete-batch`
+        : "/api/objects/delete-batch";
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -171,9 +207,13 @@ export function BucketManager() {
   const handleDownload = async (fileName: string) => {
     try {
       // Get a pre-signed URL for download
-      const response = await fetch(
-        `/api/objects/${encodeURIComponent(fileName)}?presigned=true`
-      );
+      const endpoint = bucketId
+        ? `/api/buckets/${bucketId}/objects/${encodeURIComponent(
+            fileName
+          )}?presigned=true`
+        : `/api/objects/${encodeURIComponent(fileName)}?presigned=true`;
+
+      const response = await fetch(endpoint);
 
       if (!response.ok) {
         throw new Error("Failed to generate download URL");
@@ -205,7 +245,11 @@ export function BucketManager() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const response = await fetch("/api/objects", {
+        const endpoint = bucketId
+          ? `/api/buckets/${bucketId}/objects`
+          : "/api/objects";
+
+        const response = await fetch(endpoint, {
           method: "POST",
           body: formData,
         });
@@ -216,7 +260,7 @@ export function BucketManager() {
       }
 
       // Refresh the file list
-      fetchFiles();
+      handleRefresh();
 
       toast({
         title: "Files uploaded",
@@ -266,39 +310,37 @@ export function BucketManager() {
     }
   };
 
-  const handlePreviewFile = async (file: FileObject) => {
-    // Only try to preview images and videos
-    if (!isImageFile(file.type) && !isVideoFile(file.type)) {
-      // For non-previewable files, show a toast and trigger download instead
-      toast({
-        title: "File not previewable",
-        description: "This file type cannot be previewed. Downloading instead.",
-      });
-      handleDownload(file.name);
-      return;
-    }
-
-    setPreviewFile(file);
-    setIsPreviewOpen(true);
-    setPreviewUrl(null); // Reset while loading
-
+  const handlePreview = async (file: FileObject) => {
     try {
-      // Get a pre-signed URL for the file
-      const response = await fetch(
-        `/api/objects/${encodeURIComponent(file.name)}?presigned=true`
-      );
+      setPreviewFile(file);
 
-      if (!response.ok) {
-        throw new Error("Failed to generate preview URL");
+      // Only generate a URL for files we can preview
+      if (isImageFile(file.type) || isVideoFile(file.type)) {
+        // Get a pre-signed URL for preview
+        const endpoint = bucketId
+          ? `/api/buckets/${bucketId}/objects/${encodeURIComponent(
+              file.name
+            )}?presigned=true`
+          : `/api/objects/${encodeURIComponent(file.name)}?presigned=true`;
+
+        const response = await fetch(endpoint);
+
+        if (!response.ok) {
+          throw new Error("Failed to generate preview URL");
+        }
+
+        const { url } = await response.json();
+        setPreviewUrl(url);
+      } else {
+        setPreviewUrl(null);
       }
 
-      const { url } = await response.json();
-      setPreviewUrl(url);
+      setIsPreviewOpen(true);
     } catch (error) {
-      console.error("Error generating preview URL:", error);
+      console.error("Error getting preview:", error);
       toast({
         title: "Error",
-        description: "Failed to generate preview URL",
+        description: "Failed to preview file",
       });
     }
   };
@@ -463,7 +505,7 @@ export function BucketManager() {
                       {renderThumbnail(file)}
                       <button
                         className="hover:underline text-left"
-                        onClick={() => handlePreviewFile(file)}
+                        onClick={() => handlePreview(file)}
                       >
                         {file.name}
                       </button>
