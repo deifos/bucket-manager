@@ -14,10 +14,9 @@ import {
   BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
-  BreadcrumbSeparator,
-  BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@radix-ui/react-separator";
+import { Footer } from "@/components/footer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -62,8 +61,9 @@ export default function RootLayout({
                     </Breadcrumb>
                   </div>
                 </header>
-                <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
-                  <main>{children}</main>
+                <div className="flex flex-1 flex-col gap-4 p-4 pt-0 min-h-screen">
+                  <main className="flex-1">{children}</main>
+                  <Footer />
                 </div>
               </SidebarInset>
             </SidebarProvider>

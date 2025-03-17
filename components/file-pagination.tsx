@@ -14,18 +14,12 @@ interface FilePaginationProps {
   isTruncated: boolean;
   continuationToken?: string;
   onPageChange: (token?: string) => void;
-  isLoading: boolean;
-  totalItems?: number;
-  pageSize?: number;
 }
 
 export default function FilePagination({
   isTruncated,
   continuationToken,
   onPageChange,
-  isLoading,
-  totalItems,
-  pageSize = 100,
 }: FilePaginationProps) {
   const [pageHistory, setPageHistory] = useState<
     { token?: string; page: number }[]

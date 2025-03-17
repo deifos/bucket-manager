@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import {
   Table,
   TableBody,
@@ -23,7 +22,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -63,6 +61,7 @@ interface BucketManagerProps {
   externalIsLoading?: boolean;
   onRefresh?: () => void;
   bucketId?: string;
+  bucketName?: string;
 }
 
 export function BucketManager({
@@ -70,11 +69,13 @@ export function BucketManager({
   externalIsLoading,
   onRefresh,
   bucketId,
+  bucketName,
 }: BucketManagerProps = {}) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [previewFile, setPreviewFile] = useState<FileObject | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -99,6 +100,11 @@ export function BucketManager({
       setIsLoading(externalIsLoading);
     }
   }, [externalIsLoading]);
+
+  // Reset selected files when bucket changes
+  useEffect(() => {
+    setSelectedFiles([]);
+  }, [bucketId]);
 
   // Fetch files when component mounts (client-side only)
   useEffect(() => {
@@ -163,6 +169,7 @@ export function BucketManager({
   };
 
   const handleDelete = async () => {
+    setIsDeleting(true);
     try {
       // Get filenames to delete from the selected IDs
       const keysToDelete = files
@@ -201,6 +208,8 @@ export function BucketManager({
         title: "Error",
         description: "Failed to delete files",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -397,17 +406,35 @@ export function BucketManager({
     return null;
   };
 
+  // Calculate total size of files in the current view
+  const totalSize = files.reduce((total, file) => total + file.size, 0);
+
   return (
     <div className="space-y-4 font-mono">
+      <div className="flex flex-col gap-1 mb-2">
+        {bucketName && (
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold">{bucketName}</h2>
+            <span className="text-sm text-muted-foreground">
+              ({formatBytes(totalSize)} used in current view)
+            </span>
+          </div>
+        )}
+      </div>
+
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Button
             variant="destructive"
             size="sm"
             onClick={() => setIsDeleteDialogOpen(true)}
-            disabled={selectedFiles.length === 0}
+            disabled={selectedFiles.length === 0 || isDeleting}
           >
-            <Trash2 className="h-4 w-4 mr-2" />
+            {isDeleting ? (
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4 mr-2" />
+            )}
             Delete
           </Button>
           <Button
@@ -471,10 +498,12 @@ export function BucketManager({
                   }
                 />
               </TableHead>
-              <TableHead>File</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Size</TableHead>
-              <TableHead>Last Modified</TableHead>
+              <TableHead className="w-[35%]">File</TableHead>
+              <TableHead className="w-[20%]">Type</TableHead>
+              <TableHead className="w-[10%]">Size</TableHead>
+              <TableHead className="whitespace-nowrap w-[25%]">
+                Last Modified
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -504,8 +533,9 @@ export function BucketManager({
                     <div className="flex items-center gap-3">
                       {renderThumbnail(file)}
                       <button
-                        className="hover:underline text-left"
+                        className="hover:underline text-left truncate max-w-[320px]"
                         onClick={() => handlePreview(file)}
+                        title={file.name}
                       >
                         {file.name}
                       </button>
@@ -513,7 +543,9 @@ export function BucketManager({
                   </TableCell>
                   <TableCell>{file.type}</TableCell>
                   <TableCell>{formatBytes(file.size)}</TableCell>
-                  <TableCell>{formatDate(file.lastModified)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {formatDate(file.lastModified)}
+                  </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -553,7 +585,11 @@ export function BucketManager({
         {selectedFiles.length > 0 ? (
           <p>{selectedFiles.length} file(s) selected</p>
         ) : (
-          <p>{files.length} file(s) in bucket</p>
+          <p>
+            {files.length} file(s) in bucket •
+            {formatBytes(files.reduce((total, file) => total + file.size, 0))}{" "}
+            used in current view
+          </p>
         )}
       </div>
 
@@ -592,7 +628,7 @@ export function BucketManager({
 
       <AlertDialog
         open={isDeleteDialogOpen}
-        onOpenChange={setIsDeleteDialogOpen}
+        onOpenChange={(open) => !isDeleting && setIsDeleteDialogOpen(open)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -604,14 +640,14 @@ export function BucketManager({
           <div className="space-y-2 mb-4">
             <div>
               You are about to delete <strong>{selectedFiles.length}</strong>{" "}
-              file(s) from your R2 bucket.
+              file(s) from your cloud bucket.
             </div>
             <div className="font-semibold">
               This action is <span className="underline">NOT REVERSIBLE</span>.
               Once deleted:
             </div>
             <ul className="list-disc pl-6 text-sm">
-              <li>Files cannot be recovered by Cloudflare</li>
+              <li>Files cannot be recovered from the cloud storage</li>
               <li>You will lose all data permanently</li>
               <li>If you need these files later, you will be screwed.</li>
             </ul>
@@ -622,14 +658,25 @@ export function BucketManager({
           </div>
 
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel className="sm:w-auto w-full">
+            <AlertDialogCancel
+              className="sm:w-auto w-full"
+              disabled={isDeleting}
+            >
               Cancel (Keep Files)
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground sm:w-auto w-full"
+              disabled={isDeleting}
             >
-              Yes, Permanently Delete
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Yes, Permanently Delete"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

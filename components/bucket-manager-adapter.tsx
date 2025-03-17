@@ -21,7 +21,13 @@ interface PaginatedResult {
   totalCount?: number;
 }
 
-export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
+export function BucketManagerAdapter({
+  bucketId,
+  bucketName,
+}: {
+  bucketId: string;
+  bucketName?: string;
+}) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
@@ -190,15 +196,13 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
         externalIsLoading={isLoading}
         onRefresh={() => fetchFiles()}
         bucketId={bucketId}
+        bucketName={bucketName}
       />
 
       <FilePagination
         isTruncated={isTruncated}
         continuationToken={continuationToken}
         onPageChange={handlePageChange}
-        isLoading={isLoading}
-        totalItems={totalCount}
-        pageSize={pageSize}
       />
     </div>
   );

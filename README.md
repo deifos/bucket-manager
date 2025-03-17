@@ -1,12 +1,12 @@
-# R2 Bucket Manager
+# Cloud Storage Bucket Manager
 
-A modern web application for managing files in Cloudflare R2 storage buckets.
+A modern web application for managing files in Cloudflare R2 and AWS S3 storage buckets.
 
 ![Bucket Manager](https://github.com/deifos/bucket-manager/raw/main/public/images/docs/bucket_manager.JPG)
 
 ## Features
 
-- 📁 Browse and manage files in your Cloudflare R2 bucket
+- 📁 Browse and manage files in your Cloudflare R2 or AWS S3 buckets
 - 🔍 Preview images, videos, and other file types
 - ⬆️ Upload files with drag-and-drop support
 - ⬇️ Download files directly to your device
@@ -18,15 +18,15 @@ A modern web application for managing files in Cloudflare R2 storage buckets.
 - **Frontend**: Next.js 15, React 19, Tailwind CSS
 - **UI Components**: Radix UI with Shadcn UI
 - **API**: Next.js API routes
-- **Storage**: Cloudflare R2 (using AWS S3 compatible API)
+- **Storage**: Cloudflare R2 and AWS S3 (using AWS SDK)
 
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18 or higher
-- Cloudflare R2 account with a bucket
-- Cloudflare R2 API credentials
+- Cloudflare R2 account with a bucket and/or AWS S3 bucket
+- API credentials for your cloud storage provider
 
 ### Installation
 
@@ -45,13 +45,20 @@ npm install
 pnpm install
 ```
 
-3. Create a `.env` file at the root of the project based on the `env.sampe` file:
+3. Create a `.env` file at the root of the project based on the `.env.sample` file:
 
 ```
+# Cloudflare R2 Configuration
 CLOUDFLARE_BUCKET_API=https://your-account-id.r2.cloudflarestorage.com
 CLOUDFLARE_ACCESS_KEY_ID=your-access-key-id
 CLOUDFLARE_SECRET_ACCESS_KEY=your-secret-access-key
 CLOUDFLARE_BUCKET_NAME=your-bucket-name
+
+# AWS S3 Configuration (Optional)
+S3_UPLOAD_KEY=your-aws-access-key
+S3_UPLOAD_SECRET=your-aws-secret-key
+S3_UPLOAD_BUCKET=your-s3-bucket-name
+S3_UPLOAD_REGION=your-aws-region
 ```
 
 ### Development

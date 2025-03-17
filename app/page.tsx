@@ -63,12 +63,10 @@ export default function Home() {
     <div className="container mx-auto py-2">
       <div className="px-2">
         {selectedBucketId ? (
-          <>
-            <h2 className="text-xl font-semibold mb-4">
-              {buckets.find((b) => b.id === selectedBucketId)?.name || ""}
-            </h2>
-            <BucketManagerAdapter bucketId={selectedBucketId} />
-          </>
+          <BucketManagerAdapter
+            bucketId={selectedBucketId}
+            bucketName={buckets.find((b) => b.id === selectedBucketId)?.name}
+          />
         ) : (
           <div className="flex items-center justify-center h-[60vh] border rounded-lg p-8">
             <p className="text-muted-foreground">
