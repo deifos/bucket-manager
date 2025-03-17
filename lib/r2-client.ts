@@ -42,17 +42,32 @@ export interface R2Object {
   thumbnailUrl: string | null;
 }
 
-// Get list of objects in the bucket
-export async function listObjects(): Promise<R2Object[]> {
+export interface PaginatedResult {
+  objects: R2Object[];
+  nextContinuationToken?: string;
+  isTruncated: boolean;
+  totalCount?: number;
+}
+
+// Get list of objects in the bucket with pagination
+export async function listObjects(
+  maxKeys = 100,
+  continuationToken?: string
+): Promise<PaginatedResult> {
   try {
     const command = new ListObjectsV2Command({
       Bucket: CLOUDFLARE_BUCKET_NAME,
+      MaxKeys: maxKeys,
+      ContinuationToken: continuationToken,
     });
 
     const response = await r2Client.send(command);
 
     if (!response.Contents) {
-      return [];
+      return {
+        objects: [],
+        isTruncated: false,
+      };
     }
 
     const objects: R2Object[] = response.Contents.map((item) => {
@@ -81,7 +96,12 @@ export async function listObjects(): Promise<R2Object[]> {
       };
     });
 
-    return objects;
+    return {
+      objects,
+      nextContinuationToken: response.NextContinuationToken,
+      isTruncated: response.IsTruncated || false,
+      totalCount: response.KeyCount,
+    };
   } catch (error) {
     console.error("Error listing objects:", error);
     throw error;

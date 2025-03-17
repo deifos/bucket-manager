@@ -9,7 +9,6 @@ export interface BucketConfig {
 }
 
 export function loadBucketConfigs(): BucketConfig[] {
-  console.log("Loading bucket configurations...");
   const configs: BucketConfig[] = [];
 
   // Load R2 bucket if configured
@@ -23,7 +22,6 @@ export function loadBucketConfigs(): BucketConfig[] {
       secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY || "",
     };
     configs.push(r2Bucket);
-    console.log(`Added R2 bucket: ${r2Bucket.name} with ID: ${r2Bucket.id}`);
   }
 
   // Load S3 bucket if configured
@@ -37,9 +35,7 @@ export function loadBucketConfigs(): BucketConfig[] {
       secretAccessKey: process.env.S3_UPLOAD_SECRET || "",
     };
     configs.push(s3Bucket);
-    console.log(`Added S3 bucket: ${s3Bucket.name} with ID: ${s3Bucket.id}`);
   }
 
-  console.log(`Loaded ${configs.length} bucket configurations`);
   return configs;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { BucketManager } from "@/components/bucket-manager";
 import { useToast } from "@/hooks/use-toast";
+import FilePagination from "@/components/file-pagination";
 
 interface FileObject {
   id: string;
@@ -13,11 +14,24 @@ interface FileObject {
   thumbnailUrl: string | null;
 }
 
+interface PaginatedResult {
+  objects: any[];
+  nextContinuationToken?: string;
+  isTruncated: boolean;
+  totalCount?: number;
+}
+
 export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);
+  const [continuationToken, setContinuationToken] = useState<
+    string | undefined
+  >(undefined);
+  const [isTruncated, setIsTruncated] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
+  const [pageSize] = useState(100);
 
   // Ensure component is mounted before accessing browser APIs
   useEffect(() => {
@@ -30,21 +44,35 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
     }
   }, [bucketId, isMounted]);
 
-  const fetchFiles = async () => {
+  const fetchFiles = async (token?: string) => {
     setIsLoading(true);
     try {
-      console.log(`Fetching files for bucket ID: ${bucketId}`);
-      const response = await fetch(`/api/buckets/${bucketId}/objects`);
+      const url = new URL(
+        `/api/buckets/${bucketId}/objects`,
+        window.location.origin
+      );
+
+      // Add pagination parameters
+      if (token) {
+        url.searchParams.append("continuationToken", token);
+      }
+      url.searchParams.append("maxKeys", pageSize.toString());
+
+      const response = await fetch(url.toString());
 
       if (!response.ok) {
         throw new Error(`Failed to fetch files: ${response.statusText}`);
       }
 
-      const data = await response.json();
-      console.log(`Received data for bucket ${bucketId}:`, data);
+      const data: PaginatedResult = await response.json();
+
+      // Extract pagination info
+      setContinuationToken(data.nextContinuationToken);
+      setIsTruncated(data.isTruncated);
+      setTotalCount(data.totalCount);
 
       // Convert ISO date strings to Date objects and ensure data integrity
-      const formattedData = data.map((file: any) => {
+      const formattedData = data.objects.map((file: any) => {
         try {
           return {
             ...file,
@@ -69,7 +97,6 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
         }
       });
 
-      console.log(`Formatted data:`, formattedData);
       setFiles(formattedData);
     } catch (error) {
       console.error(`Error fetching files for bucket ${bucketId}:`, error);
@@ -84,6 +111,10 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
     }
   };
 
+  const handlePageChange = (token?: string) => {
+    fetchFiles(token);
+  };
+
   // Set up fetch proxy only on the client side
   useEffect(() => {
     if (!isMounted) return;
@@ -93,16 +124,26 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
       originalUrl: string,
       options: RequestInit = {}
     ) => {
-      // Modify URL to include bucket ID
-      const url = originalUrl.replace(
-        "/api/objects",
-        `/api/buckets/${bucketId}/objects`
+      // Parse the original URL to preserve query parameters
+      const parsedUrl = new URL(originalUrl, window.location.origin);
+      const baseOriginal = parsedUrl.pathname;
+
+      // Create a new URL with the bucket ID
+      const newUrl = new URL(
+        baseOriginal.replace(
+          "/api/objects",
+          `/api/buckets/${bucketId}/objects`
+        ),
+        window.location.origin
       );
 
-      console.log(`Proxying request from ${originalUrl} to ${url}`);
+      // Copy all search parameters from the original URL
+      parsedUrl.searchParams.forEach((value, key) => {
+        newUrl.searchParams.append(key, value);
+      });
 
       // Make the request to the new endpoint
-      const response = await fetch(url, options);
+      const response = await fetch(newUrl.toString(), options);
 
       // If not OK, handle the error
       if (!response.ok) {
@@ -124,7 +165,6 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
       // Only intercept calls to the objects API
       if (typeof input === "string" && input.includes("/api/objects")) {
         try {
-          console.log(`Intercepting fetch call to: ${input}`);
           return await handleApiWrapper(input, init);
         } catch (error) {
           console.error("Error in fetch proxy:", error);
@@ -144,11 +184,22 @@ export function BucketManagerAdapter({ bucketId }: { bucketId: string }) {
 
   // Pass the files, loading state, and refresh function to BucketManager
   return (
-    <BucketManager
-      externalFiles={files}
-      externalIsLoading={isLoading}
-      onRefresh={fetchFiles}
-      bucketId={bucketId}
-    />
+    <div className="space-y-4">
+      <BucketManager
+        externalFiles={files}
+        externalIsLoading={isLoading}
+        onRefresh={() => fetchFiles()}
+        bucketId={bucketId}
+      />
+
+      <FilePagination
+        isTruncated={isTruncated}
+        continuationToken={continuationToken}
+        onPageChange={handlePageChange}
+        isLoading={isLoading}
+        totalItems={totalCount}
+        pageSize={pageSize}
+      />
+    </div>
   );
 }

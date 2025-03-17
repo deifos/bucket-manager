@@ -37,20 +37,32 @@ export interface S3Object {
   thumbnailUrl: string | null;
 }
 
-// Get list of objects in the bucket
-export async function listObjects(): Promise<S3Object[]> {
+export interface PaginatedResult {
+  objects: S3Object[];
+  nextContinuationToken?: string;
+  isTruncated: boolean;
+  totalCount?: number;
+}
+
+// Get list of objects in the bucket with pagination
+export async function listObjects(
+  maxKeys = 100,
+  continuationToken?: string
+): Promise<PaginatedResult> {
   try {
-    console.log("Listing objects from S3 bucket:", S3_UPLOAD_BUCKET);
     const command = new ListObjectsV2Command({
       Bucket: S3_UPLOAD_BUCKET,
+      MaxKeys: maxKeys,
+      ContinuationToken: continuationToken,
     });
 
     const response = await s3Client.send(command);
-    console.log("S3 response:", JSON.stringify(response, null, 2));
 
     if (!response.Contents) {
-      console.log("No objects found in S3 bucket");
-      return [];
+      return {
+        objects: [],
+        isTruncated: false,
+      };
     }
 
     const objects: S3Object[] = response.Contents.map((item) => {
@@ -75,11 +87,15 @@ export async function listObjects(): Promise<S3Object[]> {
         thumbnailUrl: null,
       };
 
-      console.log("Processed S3 object:", result);
       return result;
     });
 
-    return objects;
+    return {
+      objects,
+      nextContinuationToken: response.NextContinuationToken,
+      isTruncated: response.IsTruncated || false,
+      totalCount: response.KeyCount,
+    };
   } catch (error) {
     console.error("Error listing objects from S3:", error);
     throw error;
