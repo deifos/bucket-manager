@@ -2,7 +2,7 @@
 
 A modern web application for managing files in Cloudflare R2 storage buckets.
 
-![Bucket Manager](/images/docs/bucket_manager.JPG)
+![Bucket Manager](images/docs/bucket_manager.JPG)
 
 ## Features
 
