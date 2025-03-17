@@ -2,7 +2,7 @@
 
 A modern web application for managing files in Cloudflare R2 storage buckets.
 
-![Bucket Manager](images/docs/bucket_manager.JPG)
+![Bucket Manager](https://github.com/deifos/bucket-manager/raw/main/public/images/docs/bucket_manager.JPG)
 
 ## Features
 
