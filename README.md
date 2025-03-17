@@ -2,7 +2,7 @@
 
 A modern web application for managing files in Cloudflare R2 storage buckets.
 
-![Bucket Manager](https://placehold.co/600x400?text=R2+Bucket+Manager)
+![Bucket Manager](/images/docs/bucket_manager.JPG)
 
 ## Features
 
