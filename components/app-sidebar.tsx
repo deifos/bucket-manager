@@ -15,6 +15,7 @@ import {
 interface SafeBucketConfig {
   id: string;
   name: string;
+  displayName: string;
   provider: "r2" | "s3";
 }
 
@@ -51,7 +52,7 @@ export function AppSidebar({
                       ) : (
                         <Database size={18} />
                       )}
-                      <span>{bucket.name}</span>
+                      <span>{bucket.displayName}</span>
                       <span className="ml-auto text-xs text-muted-foreground">
                         {bucket.provider.toUpperCase()}
                       </span>

@@ -6,6 +6,7 @@ import React, { createContext, useContext, useState } from "react";
 interface SafeBucketConfig {
   id: string;
   name: string;
+  displayName: string;
   provider: "r2" | "s3";
 }
 
