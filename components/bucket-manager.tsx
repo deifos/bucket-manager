@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CopyUrlButton } from "@/components/copy-url-button";
 
 // Interface for file/object data
 interface FileObject {
@@ -689,13 +690,24 @@ export function BucketManager({
                     {formatDate(file.lastModified)}
                   </TableCell>
                   <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">Open menu</span>
-                        </Button>
-                      </DropdownMenuTrigger>
+                    <div className="flex items-center gap-1">
+                      {!file.isFolder && (
+                        <CopyUrlButton
+                          bucketId={bucketId}
+                          filePath={file.path || file.name}
+                          fileName={file.name}
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                        />
+                      )}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                            <span className="sr-only">Open menu</span>
+                          </Button>
+                        </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         {!file.isFolder && (
                           <DropdownMenuItem
@@ -727,6 +739,7 @@ export function BucketManager({
                         )}
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -768,14 +781,22 @@ export function BucketManager({
                 )}`}
             </div>
             {previewFile && !previewFile.isFolder && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => previewFile && handleDownload(previewFile.path || previewFile.name)}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download
-              </Button>
+              <div className="flex items-center gap-2">
+                <CopyUrlButton
+                  bucketId={bucketId}
+                  filePath={previewFile.path || previewFile.name}
+                  fileName={previewFile.name}
+                  size="sm"
+                  variant="outline"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => previewFile && handleDownload(previewFile.path || previewFile.name)}
+                >
+                  <Download className="h-4 w-4"/>
+                </Button>
+              </div>
             )}
           </div>
         </DialogContent>
