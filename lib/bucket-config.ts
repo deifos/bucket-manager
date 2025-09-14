@@ -1,41 +1,53 @@
 export interface BucketConfig {
   id: string;
   name: string;
+  displayName: string;
   provider: "r2" | "s3";
   region?: string;
   endpoint?: string;
+  publicUrl?: string;
   accessKeyId: string;
   secretAccessKey: string;
 }
 
+import fs from 'fs';
+import path from 'path';
+
+interface BucketConfigFile {
+  buckets: BucketConfig[];
+}
+
 export function loadBucketConfigs(): BucketConfig[] {
-  const configs: BucketConfig[] = [];
+  try {
+    const configPath = path.join(process.cwd(), 'config', 'buckets.json');
 
-  // Load R2 bucket if configured
-  if (process.env.CLOUDFLARE_BUCKET_NAME) {
-    const r2Bucket = {
-      id: "r2-" + process.env.CLOUDFLARE_BUCKET_NAME,
-      name: process.env.CLOUDFLARE_BUCKET_NAME,
-      provider: "r2" as const,
-      endpoint: process.env.CLOUDFLARE_BUCKET_API,
-      accessKeyId: process.env.CLOUDFLARE_ACCESS_KEY_ID || "",
-      secretAccessKey: process.env.CLOUDFLARE_SECRET_ACCESS_KEY || "",
-    };
-    configs.push(r2Bucket);
+    if (!fs.existsSync(configPath)) {
+      throw new Error('No buckets.json configuration file found. Please create config/buckets.json with your bucket configurations.');
+    }
+
+    const configData = fs.readFileSync(configPath, 'utf8');
+    const config: BucketConfigFile = JSON.parse(configData);
+
+    if (!config.buckets || !Array.isArray(config.buckets)) {
+      throw new Error('Invalid buckets.json format. Expected an object with a "buckets" array.');
+    }
+
+    // Validate each bucket configuration
+    config.buckets.forEach((bucket, index) => {
+      if (!bucket.id || !bucket.name || !bucket.provider || !bucket.accessKeyId || !bucket.secretAccessKey) {
+        throw new Error(`Invalid bucket configuration at index ${index}. Missing required fields: id, name, provider, accessKeyId, secretAccessKey`);
+      }
+
+      if (bucket.provider === 'r2' && !bucket.endpoint) {
+        throw new Error(`R2 bucket "${bucket.name}" is missing required endpoint field`);
+      }
+    });
+
+    console.log(`Loaded ${config.buckets.length} bucket configuration(s)`);
+    return config.buckets;
+
+  } catch (error) {
+    console.error('Error loading bucket configurations:', error);
+    throw error;
   }
-
-  // Load S3 bucket if configured
-  if (process.env.S3_UPLOAD_BUCKET) {
-    const s3Bucket = {
-      id: "s3-" + process.env.S3_UPLOAD_BUCKET,
-      name: process.env.S3_UPLOAD_BUCKET,
-      provider: "s3" as const,
-      region: process.env.S3_UPLOAD_REGION || "us-east-1",
-      accessKeyId: process.env.S3_UPLOAD_KEY || "",
-      secretAccessKey: process.env.S3_UPLOAD_SECRET || "",
-    };
-    configs.push(s3Bucket);
-  }
-
-  return configs;
 }

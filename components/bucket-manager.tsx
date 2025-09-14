@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import {
   Download,
   Film,
@@ -80,7 +80,6 @@ export function BucketManager({
   const [previewFile, setPreviewFile] = useState<FileObject | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const { toast } = useToast();
 
   // Only run client-side to avoid hydration issues
   useEffect(() => {
@@ -134,10 +133,7 @@ export function BucketManager({
       setFiles(formattedData);
     } catch (error) {
       console.error("Error fetching files:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load files from bucket",
-      });
+      toast.error("Failed to load files from bucket");
     } finally {
       setIsLoading(false);
     }
@@ -198,16 +194,10 @@ export function BucketManager({
       setSelectedFiles([]);
       setIsDeleteDialogOpen(false);
 
-      toast({
-        title: "Files deleted",
-        description: `${selectedFiles.length} file(s) have been deleted`,
-      });
+      toast.success(`${selectedFiles.length} file(s) have been deleted`);
     } catch (error) {
       console.error("Error deleting files:", error);
-      toast({
-        title: "Error",
-        description: "Failed to delete files",
-      });
+      toast.error("Failed to delete files");
     } finally {
       setIsDeleting(false);
     }
@@ -234,10 +224,7 @@ export function BucketManager({
       window.open(url, "_blank");
     } catch (error) {
       console.error("Error downloading file:", error);
-      toast({
-        title: "Error",
-        description: "Failed to download file",
-      });
+      toast.error("Failed to download file");
     }
   };
 
@@ -271,16 +258,10 @@ export function BucketManager({
       // Refresh the file list
       handleRefresh();
 
-      toast({
-        title: "Files uploaded",
-        description: `${files.length} file(s) have been uploaded`,
-      });
+      toast.success(`${files.length} file(s) have been uploaded`);
     } catch (error) {
       console.error("Error uploading files:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upload files",
-      });
+      toast.error("Failed to upload files");
     } finally {
       setIsLoading(false);
       // Clear the file input
@@ -347,10 +328,7 @@ export function BucketManager({
       setIsPreviewOpen(true);
     } catch (error) {
       console.error("Error getting preview:", error);
-      toast({
-        title: "Error",
-        description: "Failed to preview file",
-      });
+      toast.error("Failed to preview file");
     }
   };
 
@@ -373,10 +351,7 @@ export function BucketManager({
             alt={previewFile.name}
             className="max-h-full max-w-full object-contain"
             onError={() => {
-              toast({
-                title: "Error",
-                description: "Failed to load image",
-              });
+              toast.error("Failed to load image");
             }}
           />
         </div>
@@ -391,10 +366,7 @@ export function BucketManager({
             playsInline
             className="max-h-full max-w-full"
             onError={() => {
-              toast({
-                title: "Error",
-                description: "Failed to load video",
-              });
+              toast.error("Failed to load video");
             }}
           >
             Your browser does not support the video tag.

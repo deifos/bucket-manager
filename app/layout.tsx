@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@radix-ui/react-separator";
 import { Footer } from "@/components/footer";
+import { Toaster } from "@/components/ui/sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -69,6 +70,7 @@ export default function RootLayout({
             </SidebarProvider>
           </AppSidebarProvider>
         </ThemeProvider>
+        <Toaster />
       </body>
     </html>
   );

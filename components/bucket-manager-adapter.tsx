@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { BucketManager } from "@/components/bucket-manager";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import FilePagination from "@/components/file-pagination";
 
 interface FileObject {
@@ -30,7 +30,6 @@ export function BucketManagerAdapter({
 }) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
   const [isMounted, setIsMounted] = useState(false);
   const [continuationToken, setContinuationToken] = useState<
     string | undefined
@@ -67,7 +66,17 @@ export function BucketManagerAdapter({
       const response = await fetch(url.toString());
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch files: ${response.statusText}`);
+        // Try to get the detailed error message from the API response
+        let errorMessage = `Failed to fetch files: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          }
+        } catch {
+          // If we can't parse the error response, use the status text
+        }
+        throw new Error(errorMessage);
       }
 
       const data: PaginatedResult = await response.json();
@@ -106,12 +115,36 @@ export function BucketManagerAdapter({
       setFiles(formattedData);
     } catch (error) {
       console.error(`Error fetching files for bucket ${bucketId}:`, error);
-      toast({
-        title: "Error",
-        description: `Failed to load files from bucket: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`,
-      });
+
+      let errorMessage = "Unknown error occurred";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+
+      // Provide more helpful error messages based on common issues
+      if (errorMessage.includes("AccessDenied")) {
+        if (errorMessage.includes("s3:ListBucket")) {
+          toast.error("Permission Error", {
+            description: `Missing s3:ListBucket permission. Please check your AWS IAM policy includes s3:ListBucket permission for this bucket.`,
+          });
+        } else {
+          toast.error("Access Denied", {
+            description: `Access denied to bucket. Please check your AWS credentials and permissions.`,
+          });
+        }
+      } else if (errorMessage.includes("Missing required R2 environment variables")) {
+        toast.error("Configuration Error", {
+          description: "Missing R2 environment variables. Please check your .env configuration for Cloudflare R2 settings.",
+        });
+      } else if (errorMessage.includes("Bucket not found")) {
+        toast.error("Bucket Not Found", {
+          description: `The bucket '${bucketName || bucketId}' was not found. Please check the bucket configuration.`,
+        });
+      } else {
+        toast.error("Failed to Load Files", {
+          description: errorMessage,
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -153,9 +186,27 @@ export function BucketManagerAdapter({
 
       // If not OK, handle the error
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API request failed: ${errorText}`);
-        throw new Error(`API request failed: ${errorText}`);
+        let errorMessage = `API request failed: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.message) {
+            errorMessage = errorData.message;
+          } else if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch {
+          // If we can't parse JSON, try to get text
+          try {
+            const errorText = await response.text();
+            if (errorText) {
+              errorMessage = errorText;
+            }
+          } catch {
+            // Use status text as fallback
+          }
+        }
+        console.error(`API request failed: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
 
       // Return the response

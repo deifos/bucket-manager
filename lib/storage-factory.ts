@@ -27,47 +27,79 @@ export interface StorageOperations {
   generatePresignedUrl: (key: string, expiresIn?: number) => Promise<string>;
 }
 
-export function getStorageClient(provider: string): StorageOperations {
-  let client: StorageOperations;
-
-  switch (provider) {
-    case "r2":
-      client = r2Client;
-      break;
-    case "s3":
-      client = s3Client;
-      break;
-    default:
-      console.error(`Unsupported storage provider: ${provider}`);
-      throw new Error(`Unsupported storage provider: ${provider}`);
-  }
-
-  // Wrap the client methods with logging for debugging
+export function getStorageClient(config: BucketConfig): StorageOperations {
+  // Wrap the client methods with logging for debugging and pass the config
   return {
     listObjects: async (maxKeys = 100, continuationToken?: string) => {
       try {
-        const result = await client.listObjects(maxKeys, continuationToken);
+        let result: PaginatedResult;
+
+        switch (config.provider) {
+          case "r2":
+            result = await r2Client.listObjects(config, maxKeys, continuationToken);
+            break;
+          case "s3":
+            result = await s3Client.listObjects(config, maxKeys, continuationToken);
+            break;
+          default:
+            throw new Error(`Unsupported storage provider: ${config.provider}`);
+        }
 
         return result;
       } catch (error) {
-        console.error(`[${provider}] Error listing objects:`, error);
+        console.error(`[${config.provider}:${config.name}] Error listing objects:`, error);
         throw error;
       }
     },
     getObject: async (key: string) => {
-      return client.getObject(key);
+      switch (config.provider) {
+        case "r2":
+          return r2Client.getObject(config, key);
+        case "s3":
+          return s3Client.getObject(config, key);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
     },
     deleteObject: async (key: string) => {
-      return client.deleteObject(key);
+      switch (config.provider) {
+        case "r2":
+          return r2Client.deleteObject(config, key);
+        case "s3":
+          return s3Client.deleteObject(config, key);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
     },
     deleteObjects: async (keys: string[]) => {
-      return client.deleteObjects(keys);
+      switch (config.provider) {
+        case "r2":
+          return r2Client.deleteObjects(config, keys);
+        case "s3":
+          return s3Client.deleteObjects(config, keys);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
     },
     uploadObject: async (key: string, body: Buffer, contentType: string) => {
-      return client.uploadObject(key, body, contentType);
+      switch (config.provider) {
+        case "r2":
+          return r2Client.uploadObject(config, key, body, contentType);
+        case "s3":
+          return s3Client.uploadObject(config, key, body, contentType);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
     },
     generatePresignedUrl: async (key: string, expiresIn = 3600) => {
-      return client.generatePresignedUrl(key, expiresIn);
+      switch (config.provider) {
+        case "r2":
+          return r2Client.generatePresignedUrl(config, key, expiresIn);
+        case "s3":
+          return s3Client.generatePresignedUrl(config, key, expiresIn);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
     },
   };
 }

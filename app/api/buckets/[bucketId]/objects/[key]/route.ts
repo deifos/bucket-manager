@@ -19,7 +19,7 @@ export async function GET(
       return NextResponse.json({ error: "Bucket not found" }, { status: 404 });
     }
 
-    const storageClient = getStorageClient(bucketConfig.provider);
+    const storageClient = getStorageClient(bucketConfig);
 
     // Check if we should return a pre-signed URL
     const url = new URL(request.url);
@@ -68,7 +68,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Bucket not found" }, { status: 404 });
     }
 
-    const storageClient = getStorageClient(bucketConfig.provider);
+    const storageClient = getStorageClient(bucketConfig);
     await storageClient.deleteObject(key);
 
     return NextResponse.json({

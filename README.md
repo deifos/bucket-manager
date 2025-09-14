@@ -20,13 +20,56 @@ A modern web application for managing files in Cloudflare R2 and AWS S3 storage 
 - **API**: Next.js API routes
 - **Storage**: Cloudflare R2 and AWS S3 (using AWS SDK)
 
+## Required Permissions
+
+### AWS S3 and Cloudflare R2 Bucket Permissions
+
+For the application to fully function (list, read, upload, and delete files), your AWS IAM user or Cloudflare R2 API token must have the following permissions:
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:ListBucket"
+            ],
+            "Resource": "arn:aws:s3:::your-bucket-name"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:PutObjectAcl",
+                "s3:DeleteObject"
+            ],
+            "Resource": "arn:aws:s3:::your-bucket-name/*"
+        }
+    ]
+}
+```
+
+**Important Notes:**
+- Replace `your-bucket-name` with your actual bucket name
+- The `s3:ListBucket` permission must be on the bucket resource (without `/*`)
+- Object-level permissions (`s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`) must be on bucket objects (with `/*`)
+- For Cloudflare R2, use the same policy format - R2 is S3-compatible
+
+### Permission Breakdown:
+- `s3:ListBucket`: View files and folders in the bucket
+- `s3:GetObject`: Download and preview files
+- `s3:PutObject` + `s3:PutObjectAcl`: Upload files
+- `s3:DeleteObject`: Delete files
+
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js 18 or higher
 - Cloudflare R2 account with a bucket and/or AWS S3 bucket
-- API credentials for your cloud storage provider
+- API credentials for your cloud storage provider with the required permissions above
 
 ### Installation
 
@@ -45,21 +88,64 @@ npm install
 pnpm install
 ```
 
-3. Create a `.env` file at the root of the project based on the `.env.sample` file:
+3. **Configure your buckets:**
 
-```
-# Cloudflare R2 Configuration
-CLOUDFLARE_BUCKET_API=https://your-account-id.r2.cloudflarestorage.com
-CLOUDFLARE_ACCESS_KEY_ID=your-access-key-id
-CLOUDFLARE_SECRET_ACCESS_KEY=your-secret-access-key
-CLOUDFLARE_BUCKET_NAME=your-bucket-name
+Create a `config/buckets.json` file with your bucket configurations:
 
-# AWS S3 Configuration (Optional)
-S3_UPLOAD_KEY=your-aws-access-key
-S3_UPLOAD_SECRET=your-aws-secret-key
-S3_UPLOAD_BUCKET=your-s3-bucket-name
-S3_UPLOAD_REGION=your-aws-region
+```json
+{
+  "buckets": [
+    {
+      "id": "s3-my-bucket",
+      "name": "my-bucket",
+      "displayName": "My S3 Bucket",
+      "provider": "s3",
+      "region": "us-west-2",
+      "accessKeyId": "your-aws-access-key",
+      "secretAccessKey": "your-aws-secret-key"
+    },
+    {
+      "id": "s3-production",
+      "name": "production-bucket",
+      "displayName": "Production Files",
+      "provider": "s3",
+      "region": "us-east-1",
+      "accessKeyId": "your-production-access-key",
+      "secretAccessKey": "your-production-secret-key"
+    },
+    {
+      "id": "r2-media",
+      "name": "media-files",
+      "displayName": "Media Files (R2)",
+      "provider": "r2",
+      "endpoint": "https://your-account-id.r2.cloudflarestorage.com",
+      "publicUrl": "https://media.yourdomain.com",
+      "accessKeyId": "your-r2-access-key",
+      "secretAccessKey": "your-r2-secret-key"
+    }
+  ]
+}
 ```
+
+**Configuration Fields:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique identifier for the bucket (e.g., "s3-my-bucket") |
+| `name` | Yes | Actual bucket name in your cloud provider |
+| `displayName` | Yes | Human-readable name shown in the UI |
+| `provider` | Yes | Either "s3" or "r2" |
+| `region` | S3 only | AWS region (e.g., "us-west-2") |
+| `endpoint` | R2 only | R2 API endpoint URL |
+| `publicUrl` | R2 optional | Public URL for R2 bucket (if configured) |
+| `accessKeyId` | Yes | API access key |
+| `secretAccessKey` | Yes | API secret key |
+
+**Security Notes:**
+- The `config/buckets.json` file is automatically ignored by Git
+- Never commit credentials to your repository
+- For production deployments, consider using secure secret management systems
+- You can configure unlimited buckets per provider
 
 ### Development
 

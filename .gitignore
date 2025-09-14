@@ -20,6 +20,9 @@ yarn-error.log*
 .env*
 !.env.sample
 
+# bucket configurations (contains credentials)
+config/buckets.json
+
 # vercel
 .vercel
 

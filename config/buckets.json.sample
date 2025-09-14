@@ -1,0 +1,32 @@
+{
+  "buckets": [
+    {
+      "id": "s3-my-bucket",
+      "name": "my-bucket",
+      "displayName": "My S3 Bucket",
+      "provider": "s3",
+      "region": "us-west-2",
+      "accessKeyId": "your-aws-access-key",
+      "secretAccessKey": "your-aws-secret-key"
+    },
+    {
+      "id": "s3-production",
+      "name": "production-bucket",
+      "displayName": "Production Files",
+      "provider": "s3",
+      "region": "us-east-1",
+      "accessKeyId": "your-production-access-key",
+      "secretAccessKey": "your-production-secret-key"
+    },
+    {
+      "id": "r2-media",
+      "name": "media-files",
+      "displayName": "Media Files (R2)",
+      "provider": "r2",
+      "endpoint": "https://your-account-id.r2.cloudflarestorage.com",
+      "publicUrl": "https://media.yourdomain.com",
+      "accessKeyId": "your-r2-access-key",
+      "secretAccessKey": "your-r2-secret-key"
+    }
+  ]
+}

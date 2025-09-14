@@ -27,7 +27,7 @@ export async function GET(
       return NextResponse.json({ error: "Bucket not found" }, { status: 404 });
     }
 
-    const storageClient = getStorageClient(bucketConfig.provider);
+    const storageClient = getStorageClient(bucketConfig);
 
     const result = await storageClient.listObjects(maxKeys, continuationToken);
 
@@ -75,7 +75,7 @@ export async function POST(
     const filename = file.name;
 
     // Get appropriate client and upload
-    const storageClient = getStorageClient(bucketConfig.provider);
+    const storageClient = getStorageClient(bucketConfig);
     await storageClient.uploadObject(filename, buffer, contentType);
 
     return NextResponse.json(

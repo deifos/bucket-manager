@@ -26,7 +26,7 @@ export async function POST(
       );
     }
 
-    const storageClient = getStorageClient(bucketConfig.provider);
+    const storageClient = getStorageClient(bucketConfig);
     await storageClient.deleteObjects(keys);
 
     return NextResponse.json({

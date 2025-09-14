@@ -9,24 +9,16 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BucketConfig } from "@/lib/bucket-config";
 
-// Environment variables
-const S3_UPLOAD_KEY = process.env.S3_UPLOAD_KEY;
-const S3_UPLOAD_SECRET = process.env.S3_UPLOAD_SECRET;
-const S3_UPLOAD_BUCKET = process.env.S3_UPLOAD_BUCKET;
-const S3_UPLOAD_REGION = process.env.S3_UPLOAD_REGION;
-
-if (!S3_UPLOAD_KEY || !S3_UPLOAD_SECRET || !S3_UPLOAD_BUCKET) {
-  console.error("Missing required S3 environment variables");
+// Create S3 client with specific bucket configuration
+function createS3Client(config: BucketConfig): S3Client {
+  return new S3Client({
+    region: config.region || "us-east-1",
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
 }
-
-// Initialize S3 client for AWS S3
-export const s3Client = new S3Client({
-  region: S3_UPLOAD_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: S3_UPLOAD_KEY || "",
-    secretAccessKey: S3_UPLOAD_SECRET || "",
-  },
-});
 
 export interface S3Object {
   id: string;
@@ -46,12 +38,14 @@ export interface PaginatedResult {
 
 // Get list of objects in the bucket with pagination
 export async function listObjects(
+  config: BucketConfig,
   maxKeys = 100,
   continuationToken?: string
 ): Promise<PaginatedResult> {
   try {
+    const s3Client = createS3Client(config);
     const command = new ListObjectsV2Command({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       MaxKeys: maxKeys,
       ContinuationToken: continuationToken,
     });
@@ -103,10 +97,11 @@ export async function listObjects(
 }
 
 // Get a single object
-export async function getObject(key: string) {
+export async function getObject(config: BucketConfig, key: string) {
   try {
+    const s3Client = createS3Client(config);
     const command = new GetObjectCommand({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       Key: key,
     });
 
@@ -118,10 +113,11 @@ export async function getObject(key: string) {
 }
 
 // Delete a single object
-export async function deleteObject(key: string) {
+export async function deleteObject(config: BucketConfig, key: string) {
   try {
+    const s3Client = createS3Client(config);
     const command = new DeleteObjectCommand({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       Key: key,
     });
 
@@ -133,10 +129,11 @@ export async function deleteObject(key: string) {
 }
 
 // Delete multiple objects
-export async function deleteObjects(keys: string[]) {
+export async function deleteObjects(config: BucketConfig, keys: string[]) {
   try {
+    const s3Client = createS3Client(config);
     const command = new DeleteObjectsCommand({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       Delete: {
         Objects: keys.map((key) => ({ Key: key })),
       },
@@ -151,13 +148,15 @@ export async function deleteObjects(keys: string[]) {
 
 // Upload an object
 export async function uploadObject(
+  config: BucketConfig,
   key: string,
   body: Buffer,
   contentType: string
 ) {
   try {
+    const s3Client = createS3Client(config);
     const command = new PutObjectCommand({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       Key: key,
       Body: body,
       ContentType: contentType,
@@ -171,10 +170,11 @@ export async function uploadObject(
 }
 
 // Generate a pre-signed URL for temporary access
-export async function generatePresignedUrl(key: string, expiresIn = 3600) {
+export async function generatePresignedUrl(config: BucketConfig, key: string, expiresIn = 3600) {
   try {
+    const s3Client = createS3Client(config);
     const command = new GetObjectCommand({
-      Bucket: S3_UPLOAD_BUCKET,
+      Bucket: config.name,
       Key: key,
     });
 

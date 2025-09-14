@@ -9,6 +9,7 @@ export async function GET() {
     const safeBuckets = buckets.map((bucket) => ({
       id: bucket.id,
       name: bucket.name,
+      displayName: bucket.displayName,
       provider: bucket.provider,
     }));
 

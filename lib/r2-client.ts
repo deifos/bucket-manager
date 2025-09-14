@@ -7,31 +7,23 @@ import {
   DeleteObjectsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { BucketConfig } from "@/lib/bucket-config";
 
-// Environment variables
-const CLOUDFLARE_BUCKET_API = process.env.CLOUDFLARE_BUCKET_API;
-const CLOUDFLARE_ACCESS_KEY_ID = process.env.CLOUDFLARE_ACCESS_KEY_ID;
-const CLOUDFLARE_SECRET_ACCESS_KEY = process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
-const CLOUDFLARE_BUCKET_NAME = process.env.CLOUDFLARE_BUCKET_NAME;
+// Create R2 client with specific bucket configuration
+function createR2Client(config: BucketConfig): S3Client {
+  if (!config.endpoint) {
+    throw new Error(`R2 bucket ${config.name} is missing endpoint configuration`);
+  }
 
-if (
-  !CLOUDFLARE_BUCKET_API ||
-  !CLOUDFLARE_ACCESS_KEY_ID ||
-  !CLOUDFLARE_SECRET_ACCESS_KEY ||
-  !CLOUDFLARE_BUCKET_NAME
-) {
-  console.error("Missing required R2 environment variables");
+  return new S3Client({
+    region: "auto",
+    endpoint: config.endpoint,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  });
 }
-
-// Initialize S3 client for Cloudflare R2
-export const r2Client = new S3Client({
-  region: "auto",
-  endpoint: CLOUDFLARE_BUCKET_API,
-  credentials: {
-    accessKeyId: CLOUDFLARE_ACCESS_KEY_ID || "",
-    secretAccessKey: CLOUDFLARE_SECRET_ACCESS_KEY || "",
-  },
-});
 
 export interface R2Object {
   id: string;
@@ -51,12 +43,14 @@ export interface PaginatedResult {
 
 // Get list of objects in the bucket with pagination
 export async function listObjects(
+  config: BucketConfig,
   maxKeys = 100,
   continuationToken?: string
 ): Promise<PaginatedResult> {
   try {
+    const r2Client = createR2Client(config);
     const command = new ListObjectsV2Command({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       MaxKeys: maxKeys,
       ContinuationToken: continuationToken,
     });
@@ -109,10 +103,11 @@ export async function listObjects(
 }
 
 // Get a single object
-export async function getObject(key: string) {
+export async function getObject(config: BucketConfig, key: string) {
   try {
+    const r2Client = createR2Client(config);
     const command = new GetObjectCommand({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       Key: key,
     });
 
@@ -124,10 +119,11 @@ export async function getObject(key: string) {
 }
 
 // Delete a single object
-export async function deleteObject(key: string) {
+export async function deleteObject(config: BucketConfig, key: string) {
   try {
+    const r2Client = createR2Client(config);
     const command = new DeleteObjectCommand({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       Key: key,
     });
 
@@ -139,10 +135,11 @@ export async function deleteObject(key: string) {
 }
 
 // Delete multiple objects
-export async function deleteObjects(keys: string[]) {
+export async function deleteObjects(config: BucketConfig, keys: string[]) {
   try {
+    const r2Client = createR2Client(config);
     const command = new DeleteObjectsCommand({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       Delete: {
         Objects: keys.map((key) => ({ Key: key })),
       },
@@ -157,13 +154,15 @@ export async function deleteObjects(keys: string[]) {
 
 // Upload an object
 export async function uploadObject(
+  config: BucketConfig,
   key: string,
   body: Buffer,
   contentType: string
 ) {
   try {
+    const r2Client = createR2Client(config);
     const command = new PutObjectCommand({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       Key: key,
       Body: body,
       ContentType: contentType,
@@ -177,10 +176,11 @@ export async function uploadObject(
 }
 
 // Generate a pre-signed URL for temporary access
-export async function generatePresignedUrl(key: string, expiresIn = 3600) {
+export async function generatePresignedUrl(config: BucketConfig, key: string, expiresIn = 3600) {
   try {
+    const r2Client = createR2Client(config);
     const command = new GetObjectCommand({
-      Bucket: CLOUDFLARE_BUCKET_NAME,
+      Bucket: config.name,
       Key: key,
     });
 

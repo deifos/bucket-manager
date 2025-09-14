@@ -1,5 +1,6 @@
-import { type ClassValue, clsx } from "clsx"
+import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+
 import {
   FileIcon,
   FileTextIcon,
@@ -85,4 +86,3 @@ export function getFileTypeIcon(mimeType: string) {
   // Default file icon
   return FileIcon
 }
-
