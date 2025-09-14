@@ -20,6 +20,7 @@ export interface StorageOperations {
   getObject: (key: string) => Promise<any>;
   deleteObject: (key: string) => Promise<any>;
   deleteObjects: (keys: string[]) => Promise<any>;
+  deleteFolder: (folderPath: string) => Promise<{ deletedCount: number }>;
   uploadObject: (
     key: string,
     body: Buffer,
@@ -79,6 +80,16 @@ export function getStorageClient(config: BucketConfig): StorageOperations {
           return r2Client.deleteObjects(config, keys);
         case "s3":
           return s3Client.deleteObjects(config, keys);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
+    },
+    deleteFolder: async (folderPath: string) => {
+      switch (config.provider) {
+        case "r2":
+          return r2Client.deleteFolder(config, folderPath);
+        case "s3":
+          return s3Client.deleteFolder(config, folderPath);
         default:
           throw new Error(`Unsupported storage provider: ${config.provider}`);
       }

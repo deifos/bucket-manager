@@ -11,6 +11,8 @@ interface SafeBucketConfig {
   name: string;
   displayName: string;
   provider: "r2" | "s3";
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 // This component loads data on the server but renders client-side
@@ -19,6 +21,28 @@ export default function Home() {
   const [selectedBucketId, setSelectedBucketId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const { setSidebarProps } = useAppSidebarContext();
+
+  // Function to handle bucket errors
+  const handleBucketError = (bucketId: string, error: string) => {
+    setBuckets(prevBuckets =>
+      prevBuckets.map(bucket =>
+        bucket.id === bucketId
+          ? { ...bucket, hasError: true, errorMessage: error }
+          : bucket
+      )
+    );
+  };
+
+  // Function to clear bucket errors (when successfully loaded)
+  const clearBucketError = (bucketId: string) => {
+    setBuckets(prevBuckets =>
+      prevBuckets.map(bucket =>
+        bucket.id === bucketId
+          ? { ...bucket, hasError: false, errorMessage: undefined }
+          : bucket
+      )
+    );
+  };
 
   // Load buckets after component mounts to avoid hydration mismatch
   useEffect(() => {
@@ -93,6 +117,8 @@ export default function Home() {
           <BucketManagerAdapter
             bucketId={selectedBucketId}
             bucketName={buckets.find((b) => b.id === selectedBucketId)?.displayName}
+            onError={(error: string) => handleBucketError(selectedBucketId, error)}
+            onSuccess={() => clearBucketError(selectedBucketId)}
           />
         ) : (
           <div className="flex items-center justify-center h-[60vh] border rounded-lg p-8">

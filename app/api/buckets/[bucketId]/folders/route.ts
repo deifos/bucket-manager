@@ -60,3 +60,51 @@ export async function POST(
     );
   }
 }
+
+// DELETE: Delete a folder and all its contents
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ bucketId: string }> }
+) {
+  try {
+    // Properly await the params object before accessing
+    const bucketParams = await params;
+    const bucketId = bucketParams.bucketId;
+
+    const bucketConfigs = loadBucketConfigs();
+    const bucketConfig = bucketConfigs.find((c) => c.id === bucketId);
+
+    if (!bucketConfig) {
+      console.error(`Bucket not found with ID: ${bucketId}`);
+      return NextResponse.json({ error: "Bucket not found" }, { status: 404 });
+    }
+
+    const { folderPath } = await request.json();
+
+    if (!folderPath || typeof folderPath !== 'string') {
+      return NextResponse.json({ error: "Folder path is required" }, { status: 400 });
+    }
+
+    // Get appropriate client and delete folder
+    const storageClient = getStorageClient(bucketConfig);
+    const result = await storageClient.deleteFolder(folderPath);
+
+    return NextResponse.json(
+      {
+        message: `Folder and ${result.deletedCount} item(s) deleted successfully`,
+        deletedCount: result.deletedCount,
+        folderPath
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("Failed to delete folder:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to delete folder",
+        message: error instanceof Error ? error.message : "Unknown error",
+      },
+      { status: 500 }
+    );
+  }
+}

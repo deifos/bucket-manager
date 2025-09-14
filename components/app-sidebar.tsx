@@ -1,4 +1,4 @@
-import { CloudCog, Database } from "lucide-react";
+import { CloudCog, Database, AlertTriangle } from "lucide-react";
 
 import {
   Sidebar,
@@ -17,6 +17,8 @@ interface SafeBucketConfig {
   name: string;
   displayName: string;
   provider: "r2" | "s3";
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
 interface AppSidebarProps {
@@ -46,16 +48,29 @@ export function AppSidebar({
                       className={
                         selectedBucketId === bucket.id ? "bg-muted" : ""
                       }
+                      title={bucket.hasError ? `Error: ${bucket.errorMessage}` : undefined}
                     >
                       {bucket.provider === "r2" ? (
                         <CloudCog size={18} />
                       ) : (
                         <Database size={18} />
                       )}
-                      <span>{bucket.displayName}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {bucket.provider.toUpperCase()}
+                      <span className={bucket.hasError ? "text-muted-foreground" : ""}>
+                        {bucket.displayName}
                       </span>
+                      <div className="ml-auto flex items-center gap-1">
+                        {bucket.hasError && (
+                          <span title={bucket.errorMessage}>
+                            <AlertTriangle
+                              size={14}
+                              className="text-destructive"
+                            />
+                          </span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {bucket.provider.toUpperCase()}
+                        </span>
+                      </div>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

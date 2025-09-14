@@ -181,6 +181,54 @@ export async function deleteObjects(config: BucketConfig, keys: string[]) {
   }
 }
 
+// Delete a folder and all its contents
+export async function deleteFolder(config: BucketConfig, folderPath: string) {
+  try {
+    const r2Client = createR2Client(config);
+
+    // Ensure folder path ends with /
+    const normalizedPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
+
+    // First, list all objects with this prefix
+    let continuationToken: string | undefined;
+    let allKeys: string[] = [];
+
+    do {
+      const listCommand = new ListObjectsV2Command({
+        Bucket: config.name,
+        Prefix: normalizedPath,
+        ContinuationToken: continuationToken,
+      });
+
+      const listResponse = await r2Client.send(listCommand);
+
+      if (listResponse.Contents) {
+        const keys = listResponse.Contents.map(obj => obj.Key).filter(key => key) as string[];
+        allKeys.push(...keys);
+      }
+
+      continuationToken = listResponse.NextContinuationToken;
+    } while (continuationToken);
+
+    if (allKeys.length === 0) {
+      // If no objects found, just delete the folder marker if it exists
+      allKeys = [normalizedPath];
+    }
+
+    // Delete all objects in batches (S3/R2 allows max 1000 objects per delete)
+    const batchSize = 1000;
+    for (let i = 0; i < allKeys.length; i += batchSize) {
+      const batch = allKeys.slice(i, i + batchSize);
+      await deleteObjects(config, batch);
+    }
+
+    return { deletedCount: allKeys.length };
+  } catch (error) {
+    console.error(`Error deleting folder ${folderPath}:`, error);
+    throw error;
+  }
+}
+
 // Upload an object
 export async function uploadObject(
   config: BucketConfig,

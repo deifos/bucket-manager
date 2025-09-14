@@ -26,9 +26,13 @@ interface PaginatedResult {
 export function BucketManagerAdapter({
   bucketId,
   bucketName,
+  onError,
+  onSuccess,
 }: {
   bucketId: string;
   bucketName?: string;
+  onError?: (error: string) => void;
+  onSuccess?: () => void;
 }) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -123,6 +127,10 @@ export function BucketManagerAdapter({
       });
 
       setFiles(formattedData);
+      // Call success callback if provided
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error) {
       console.error(`Error fetching files for bucket ${bucketId}:`, error);
 
@@ -154,6 +162,11 @@ export function BucketManagerAdapter({
         toast.error("Failed to Load Files", {
           description: errorMessage,
         });
+      }
+
+      // Call error callback if provided
+      if (onError) {
+        onError(errorMessage);
       }
     } finally {
       setIsLoading(false);
