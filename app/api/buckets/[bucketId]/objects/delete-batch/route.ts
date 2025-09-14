@@ -4,10 +4,10 @@ import { getStorageClient } from "@/lib/storage-factory";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { bucketId: string } }
+  { params }: { params: Promise<{ bucketId: string }> }
 ) {
   try {
-    const bucketParams = await Promise.resolve(params);
+    const bucketParams = await params;
     const bucketId = bucketParams.bucketId;
 
     const bucketConfigs = loadBucketConfigs();

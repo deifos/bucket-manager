@@ -4,19 +4,20 @@ import { getStorageClient } from "@/lib/storage-factory";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { bucketId: string } }
+  { params }: { params: Promise<{ bucketId: string }> }
 ) {
   try {
-    // Get pagination parameters from search params
+    // Get pagination and folder parameters from search params
     const searchParams = request.nextUrl.searchParams;
     const maxKeys = searchParams.get("maxKeys")
       ? parseInt(searchParams.get("maxKeys") as string, 10)
       : 100;
     const continuationToken =
       searchParams.get("continuationToken") || undefined;
+    const prefix = searchParams.get("prefix") || "";
 
     // Properly await the params object before accessing
-    const bucketParams = await Promise.resolve(params);
+    const bucketParams = await params;
     const bucketId = bucketParams.bucketId;
 
     const bucketConfigs = loadBucketConfigs();
@@ -29,7 +30,7 @@ export async function GET(
 
     const storageClient = getStorageClient(bucketConfig);
 
-    const result = await storageClient.listObjects(maxKeys, continuationToken);
+    const result = await storageClient.listObjects(maxKeys, continuationToken, prefix);
 
     return NextResponse.json(result);
   } catch (error) {
@@ -47,11 +48,11 @@ export async function GET(
 // POST: Upload a new object
 export async function POST(
   request: NextRequest,
-  { params }: { params: { bucketId: string } }
+  { params }: { params: Promise<{ bucketId: string }> }
 ) {
   try {
     // Properly await the params object before accessing
-    const bucketParams = await Promise.resolve(params);
+    const bucketParams = await params;
     const bucketId = bucketParams.bucketId;
 
     const bucketConfigs = loadBucketConfigs();

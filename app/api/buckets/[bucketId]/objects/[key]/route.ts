@@ -4,11 +4,11 @@ import { getStorageClient } from "@/lib/storage-factory";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { bucketId: string; key: string } }
+  { params }: { params: Promise<{ bucketId: string; key: string }> }
 ) {
   try {
     // Properly await the params object before accessing
-    const routeParams = await Promise.resolve(params);
+    const routeParams = await params;
     const bucketId = routeParams.bucketId;
     const key = decodeURIComponent(routeParams.key);
 
@@ -53,11 +53,11 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { bucketId: string; key: string } }
+  { params }: { params: Promise<{ bucketId: string; key: string }> }
 ) {
   try {
     // Properly await the params object before accessing
-    const routeParams = await Promise.resolve(params);
+    const routeParams = await params;
     const bucketId = routeParams.bucketId;
     const key = decodeURIComponent(routeParams.key);
 

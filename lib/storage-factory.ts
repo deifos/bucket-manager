@@ -14,7 +14,8 @@ export interface PaginatedResult {
 export interface StorageOperations {
   listObjects: (
     maxKeys?: number,
-    continuationToken?: string
+    continuationToken?: string,
+    prefix?: string
   ) => Promise<PaginatedResult>;
   getObject: (key: string) => Promise<any>;
   deleteObject: (key: string) => Promise<any>;
@@ -24,22 +25,23 @@ export interface StorageOperations {
     body: Buffer,
     contentType: string
   ) => Promise<any>;
+  createFolder: (folderPath: string) => Promise<any>;
   generatePresignedUrl: (key: string, expiresIn?: number) => Promise<string>;
 }
 
 export function getStorageClient(config: BucketConfig): StorageOperations {
   // Wrap the client methods with logging for debugging and pass the config
   return {
-    listObjects: async (maxKeys = 100, continuationToken?: string) => {
+    listObjects: async (maxKeys = 100, continuationToken?: string, prefix = "") => {
       try {
         let result: PaginatedResult;
 
         switch (config.provider) {
           case "r2":
-            result = await r2Client.listObjects(config, maxKeys, continuationToken);
+            result = await r2Client.listObjects(config, maxKeys, continuationToken, prefix);
             break;
           case "s3":
-            result = await s3Client.listObjects(config, maxKeys, continuationToken);
+            result = await s3Client.listObjects(config, maxKeys, continuationToken, prefix);
             break;
           default:
             throw new Error(`Unsupported storage provider: ${config.provider}`);
@@ -87,6 +89,16 @@ export function getStorageClient(config: BucketConfig): StorageOperations {
           return r2Client.uploadObject(config, key, body, contentType);
         case "s3":
           return s3Client.uploadObject(config, key, body, contentType);
+        default:
+          throw new Error(`Unsupported storage provider: ${config.provider}`);
+      }
+    },
+    createFolder: async (folderPath: string) => {
+      switch (config.provider) {
+        case "r2":
+          return r2Client.createFolder(config, folderPath);
+        case "s3":
+          return s3Client.createFolder(config, folderPath);
         default:
           throw new Error(`Unsupported storage provider: ${config.provider}`);
       }

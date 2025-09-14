@@ -28,8 +28,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
+  ArrowLeft,
+  ChevronRight,
   Download,
   Film,
+  Folder,
+  FolderPlus,
+  Home,
   MoreVertical,
   RefreshCw,
   Trash2,
@@ -44,15 +49,19 @@ import {
   DialogTitle,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 // Interface for file/object data
 interface FileObject {
   id: string;
   name: string;
+  path: string;
   type: string;
   size: number;
   lastModified: Date;
   thumbnailUrl: string | null;
+  isFolder: boolean;
 }
 
 // Define props interface for BucketManager
@@ -62,6 +71,11 @@ interface BucketManagerProps {
   onRefresh?: () => void;
   bucketId?: string;
   bucketName?: string;
+  currentPrefix?: string;
+  folderHistory?: string[];
+  onNavigateToFolder?: (folderPath: string) => void;
+  onNavigateBack?: () => void;
+  onNavigateToRoot?: () => void;
 }
 
 export function BucketManager({
@@ -70,6 +84,11 @@ export function BucketManager({
   onRefresh,
   bucketId,
   bucketName,
+  currentPrefix,
+  folderHistory,
+  onNavigateToFolder,
+  onNavigateBack,
+  onNavigateToRoot,
 }: BucketManagerProps = {}) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
@@ -80,6 +99,9 @@ export function BucketManager({
   const [previewFile, setPreviewFile] = useState<FileObject | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 
   // Only run client-side to avoid hydration issues
   useEffect(() => {
@@ -141,7 +163,8 @@ export function BucketManager({
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedFiles(files.map((file) => file.id));
+      // Only select files, not folders
+      setSelectedFiles(sortedFiles.filter((file) => !file.isFolder).map((file) => file.id));
     } else {
       setSelectedFiles([]);
     }
@@ -167,10 +190,10 @@ export function BucketManager({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      // Get filenames to delete from the selected IDs
-      const keysToDelete = files
-        .filter((file) => selectedFiles.includes(file.id))
-        .map((file) => file.name);
+      // Get file paths to delete from the selected IDs (use path for full path support)
+      const keysToDelete = sortedFiles
+        .filter((file) => selectedFiles.includes(file.id) && !file.isFolder)
+        .map((file) => file.path || file.name); // Use path if available, fallback to name
 
       // Call the API to delete files
       const endpoint = bucketId
@@ -189,8 +212,13 @@ export function BucketManager({
         throw new Error("Failed to delete files");
       }
 
-      // Update the UI optimistically
-      setFiles(files.filter((file) => !selectedFiles.includes(file.id)));
+      // Update the UI optimistically - need to trigger a refresh instead of local state update
+      if (onRefresh) {
+        onRefresh();
+      } else {
+        // Fallback to local state update if no external refresh
+        setFiles(files.filter((file) => !selectedFiles.includes(file.id)));
+      }
       setSelectedFiles([]);
       setIsDeleteDialogOpen(false);
 
@@ -203,14 +231,14 @@ export function BucketManager({
     }
   };
 
-  const handleDownload = async (fileName: string) => {
+  const handleDownload = async (filePath: string) => {
     try {
-      // Get a pre-signed URL for download
+      // Get a pre-signed URL for download (filePath now includes full path)
       const endpoint = bucketId
         ? `/api/buckets/${bucketId}/objects/${encodeURIComponent(
-            fileName
+            filePath
           )}?presigned=true`
-        : `/api/objects/${encodeURIComponent(fileName)}?presigned=true`;
+        : `/api/objects/${encodeURIComponent(filePath)}?presigned=true`;
 
       const response = await fetch(endpoint);
 
@@ -278,7 +306,13 @@ export function BucketManager({
   };
 
   const renderThumbnail = (file: FileObject) => {
-    if (isImageFile(file.type)) {
+    if (file.isFolder) {
+      return (
+        <div className="flex h-10 w-10 items-center justify-center rounded border bg-muted">
+          <Folder className="h-5 w-5 text-blue-600" />
+        </div>
+      );
+    } else if (isImageFile(file.type)) {
       return (
         <div className="flex h-10 w-10 items-center justify-center rounded border bg-muted">
           <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -304,14 +338,15 @@ export function BucketManager({
     try {
       setPreviewFile(file);
 
-      // Only generate a URL for files we can preview
-      if (isImageFile(file.type) || isVideoFile(file.type)) {
-        // Get a pre-signed URL for preview
+      // Only generate a URL for files we can preview (not folders)
+      if (!file.isFolder && (isImageFile(file.type) || isVideoFile(file.type))) {
+        // Get a pre-signed URL for preview (use full path)
+        const filePath = file.path || file.name;
         const endpoint = bucketId
           ? `/api/buckets/${bucketId}/objects/${encodeURIComponent(
-              file.name
+              filePath
             )}?presigned=true`
-          : `/api/objects/${encodeURIComponent(file.name)}?presigned=true`;
+          : `/api/objects/${encodeURIComponent(filePath)}?presigned=true`;
 
         const response = await fetch(endpoint);
 
@@ -325,7 +360,9 @@ export function BucketManager({
         setPreviewUrl(null);
       }
 
-      setIsPreviewOpen(true);
+      if (!file.isFolder) {
+        setIsPreviewOpen(true);
+      }
     } catch (error) {
       console.error("Error getting preview:", error);
       toast.error("Failed to preview file");
@@ -381,6 +418,85 @@ export function BucketManager({
   // Calculate total size of files in the current view
   const totalSize = files.reduce((total, file) => total + file.size, 0);
 
+  // Generate breadcrumb segments from currentPrefix
+  const getBreadcrumbSegments = () => {
+    if (!currentPrefix) return [];
+    return currentPrefix
+      .split("/")
+      .filter(Boolean)
+      .map((segment, index, array) => ({
+        name: segment,
+        path: array.slice(0, index + 1).join("/") + "/",
+      }));
+  };
+
+  // Sort files: folders first, then files
+  const sortedFiles = [...files].sort((a, b) => {
+    if (a.isFolder && !b.isFolder) return -1;
+    if (!a.isFolder && b.isFolder) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  // Handle folder navigation
+  const handleFolderClick = (folderPath: string) => {
+    if (onNavigateToFolder) {
+      onNavigateToFolder(folderPath);
+    }
+  };
+
+  // Handle folder double-click
+  const handleFolderDoubleClick = (folderPath: string) => {
+    handleFolderClick(folderPath);
+  };
+
+  // Handle create folder
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error("Please enter a folder name");
+      return;
+    }
+
+    setIsCreatingFolder(true);
+    try {
+      const endpoint = bucketId
+        ? `/api/buckets/${bucketId}/folders`
+        : "/api/folders";
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          folderName: newFolderName.trim(),
+          currentPrefix: currentPrefix || "",
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create folder");
+      }
+
+      const data = await response.json();
+      toast.success(`Folder "${data.folderName}" created successfully`);
+
+      // Refresh the file list
+      handleRefresh();
+
+      // Reset form and close dialog
+      setNewFolderName("");
+      setIsCreateFolderOpen(false);
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create folder"
+      );
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  };
+
   return (
     <div className="space-y-4 font-mono">
       <div className="flex flex-col gap-1 mb-2">
@@ -392,10 +508,49 @@ export function BucketManager({
             </span>
           </div>
         )}
+
+        {/* Breadcrumb Navigation */}
+        <div className="flex items-center gap-1 text-sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2"
+            onClick={onNavigateToRoot}
+            title="Go to root"
+          >
+            <Home className="h-3 w-3" />
+          </Button>
+          {getBreadcrumbSegments().map((segment, index) => (
+            <div key={segment.path} className="flex items-center gap-1">
+              <ChevronRight className="h-3 w-3 text-muted-foreground" />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-muted-foreground hover:text-foreground"
+                onClick={() => onNavigateToFolder && onNavigateToFolder(segment.path)}
+                title={`Navigate to ${segment.name}`}
+              >
+                {segment.name}
+              </Button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-2">
+          {/* Back button - only show when not at root */}
+          {currentPrefix && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onNavigateBack}
+              title="Go back"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          )}
           <Button
             variant="destructive"
             size="sm"
@@ -415,11 +570,11 @@ export function BucketManager({
             disabled={selectedFiles.length !== 1}
             onClick={() => {
               if (selectedFiles.length === 1) {
-                const selectedFile = files.find(
+                const selectedFile = sortedFiles.find(
                   (f) => f.id === selectedFiles[0]
                 );
-                if (selectedFile) {
-                  handleDownload(selectedFile.name);
+                if (selectedFile && !selectedFile.isFolder) {
+                  handleDownload(selectedFile.path || selectedFile.name);
                 }
               }
             }}
@@ -440,6 +595,15 @@ export function BucketManager({
               />
             </label>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCreateFolderOpen(true)}
+            disabled={isLoading}
+          >
+            <FolderPlus className="h-4 w-4 mr-2" />
+            New Folder
+          </Button>
         </div>
         <Button
           variant="outline"
@@ -458,13 +622,14 @@ export function BucketManager({
               <TableHead className="w-[50px]">
                 <Checkbox
                   checked={
-                    selectedFiles.length === files.length && files.length > 0
+                    selectedFiles.length === sortedFiles.filter(f => !f.isFolder).length &&
+                    sortedFiles.filter(f => !f.isFolder).length > 0
                   }
                   onCheckedChange={handleSelectAll}
                   aria-label="Select all files"
                   data-state={
                     selectedFiles.length > 0 &&
-                    selectedFiles.length < files.length
+                    selectedFiles.length < sortedFiles.filter(f => !f.isFolder).length
                       ? "indeterminate"
                       : undefined
                   }
@@ -480,7 +645,7 @@ export function BucketManager({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {files.length === 0 ? (
+            {sortedFiles.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={6}
@@ -490,8 +655,12 @@ export function BucketManager({
                 </TableCell>
               </TableRow>
             ) : (
-              files.map((file) => (
-                <TableRow key={file.id}>
+              sortedFiles.map((file) => (
+                <TableRow
+                  key={file.id}
+                  className={file.isFolder ? "cursor-pointer" : ""}
+                  onDoubleClick={() => file.isFolder && handleFolderDoubleClick(file.path)}
+                >
                   <TableCell>
                     <Checkbox
                       checked={selectedFiles.includes(file.id)}
@@ -499,6 +668,7 @@ export function BucketManager({
                         handleSelectFile(file.id, !!checked)
                       }
                       aria-label={`Select ${file.name}`}
+                      disabled={file.isFolder}
                     />
                   </TableCell>
                   <TableCell className="font-medium">
@@ -506,15 +676,15 @@ export function BucketManager({
                       {renderThumbnail(file)}
                       <button
                         className="hover:underline text-left truncate max-w-[320px]"
-                        onClick={() => handlePreview(file)}
+                        onClick={() => file.isFolder ? handleFolderClick(file.path) : handlePreview(file)}
                         title={file.name}
                       >
                         {file.name}
                       </button>
                     </div>
                   </TableCell>
-                  <TableCell>{file.type}</TableCell>
-                  <TableCell>{formatBytes(file.size)}</TableCell>
+                  <TableCell>{file.isFolder ? "Folder" : file.type}</TableCell>
+                  <TableCell>{file.isFolder ? "—" : formatBytes(file.size)}</TableCell>
                   <TableCell className="whitespace-nowrap">
                     {formatDate(file.lastModified)}
                   </TableCell>
@@ -527,22 +697,34 @@ export function BucketManager({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleDownload(file.name)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => {
-                            setSelectedFiles([file.id]);
-                            setIsDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {!file.isFolder && (
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(file.path)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                        )}
+                        {!file.isFolder && (
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => {
+                              setSelectedFiles([file.id]);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        )}
+                        {file.isFolder && (
+                          <DropdownMenuItem
+                            onClick={() => handleFolderClick(file.path)}
+                          >
+                            <Folder className="h-4 w-4 mr-2" />
+                            Open Folder
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -558,8 +740,9 @@ export function BucketManager({
           <p>{selectedFiles.length} file(s) selected</p>
         ) : (
           <p>
-            {files.length} file(s) in bucket •
-            {formatBytes(files.reduce((total, file) => total + file.size, 0))}{" "}
+            {sortedFiles.filter(f => !f.isFolder).length} file(s) •
+            {sortedFiles.filter(f => f.isFolder).length} folder(s) •
+            {formatBytes(sortedFiles.filter(f => !f.isFolder).reduce((total, file) => total + file.size, 0))}{" "}
             used in current view
           </p>
         )}
@@ -584,16 +767,77 @@ export function BucketManager({
                   previewFile.lastModified
                 )}`}
             </div>
-            {previewFile && (
+            {previewFile && !previewFile.isFolder && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => previewFile && handleDownload(previewFile.name)}
+                onClick={() => previewFile && handleDownload(previewFile.path || previewFile.name)}
               >
                 <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Folder Dialog */}
+      <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="folder-name">Folder Name</Label>
+              <Input
+                id="folder-name"
+                placeholder="Enter folder name"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !isCreatingFolder) {
+                    handleCreateFolder();
+                  } else if (e.key === "Escape") {
+                    setIsCreateFolderOpen(false);
+                  }
+                }}
+                disabled={isCreatingFolder}
+              />
+              {currentPrefix && (
+                <div className="text-xs text-muted-foreground">
+                  Will be created in: {currentPrefix}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateFolderOpen(false);
+                setNewFolderName("");
+              }}
+              disabled={isCreatingFolder}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateFolder}
+              disabled={isCreatingFolder || !newFolderName.trim()}
+            >
+              {isCreatingFolder ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Create Folder
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

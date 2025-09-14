@@ -23,10 +23,12 @@ function createS3Client(config: BucketConfig): S3Client {
 export interface S3Object {
   id: string;
   name: string;
+  path: string; // Full path including folders
   type: string;
   size: number;
   lastModified: Date;
   thumbnailUrl: string | null;
+  isFolder: boolean;
 }
 
 export interface PaginatedResult {
@@ -40,7 +42,8 @@ export interface PaginatedResult {
 export async function listObjects(
   config: BucketConfig,
   maxKeys = 100,
-  continuationToken?: string
+  continuationToken?: string,
+  prefix = ""
 ): Promise<PaginatedResult> {
   try {
     const s3Client = createS3Client(config);
@@ -48,41 +51,68 @@ export async function listObjects(
       Bucket: config.name,
       MaxKeys: maxKeys,
       ContinuationToken: continuationToken,
+      Prefix: prefix,
+      Delimiter: "/", // This groups objects by "folder"
     });
 
     const response = await s3Client.send(command);
 
-    if (!response.Contents) {
-      return {
-        objects: [],
-        isTruncated: false,
-      };
+    const objects: S3Object[] = [];
+
+    // Process folders (CommonPrefixes)
+    if (response.CommonPrefixes) {
+      response.CommonPrefixes.forEach((prefixObj) => {
+        const folderPath = prefixObj.Prefix || "";
+        const folderName = folderPath.replace(prefix, "").replace("/", "");
+
+        if (folderName) { // Skip empty names
+          objects.push({
+            id: `folder-${folderPath}`,
+            name: folderName,
+            path: folderPath,
+            type: "folder",
+            size: 0,
+            lastModified: new Date(),
+            thumbnailUrl: null,
+            isFolder: true,
+          });
+        }
+      });
     }
 
-    const objects: S3Object[] = response.Contents.map((item) => {
-      // Generate a stable ID based on the filename and ETag (same format as R2)
-      const id =
-        (item.Key || "") +
-        "-" +
-        (item.ETag?.replace(/"/g, "") ||
-          item.LastModified?.getTime().toString() ||
-          "");
+    // Process files (Contents)
+    if (response.Contents) {
+      response.Contents.forEach((item) => {
+        const fullPath = item.Key || "";
+        const fileName = fullPath.split("/").pop() || "unknown";
 
-      // Determine MIME type from the file extension
-      const extension = item.Key?.split(".").pop()?.toLowerCase() || "";
-      const mimeType = getMimeType(extension);
+        // Skip if this is just the folder marker (ends with /)
+        if (fullPath.endsWith("/")) return;
 
-      const result = {
-        id,
-        name: item.Key || "unknown",
-        type: mimeType,
-        size: item.Size || 0,
-        lastModified: item.LastModified || new Date(),
-        thumbnailUrl: null,
-      };
+        // Generate a stable ID based on the filename and ETag
+        const id =
+          fullPath +
+          "-" +
+          (item.ETag?.replace(/"/g, "") ||
+            item.LastModified?.getTime().toString() ||
+            "");
 
-      return result;
-    });
+        // Determine MIME type from the file extension
+        const extension = fileName.split(".").pop()?.toLowerCase() || "";
+        const mimeType = getMimeType(extension);
+
+        objects.push({
+          id,
+          name: fileName,
+          path: fullPath,
+          type: mimeType,
+          size: item.Size || 0,
+          lastModified: item.LastModified || new Date(),
+          thumbnailUrl: null,
+          isFolder: false,
+        });
+      });
+    }
 
     return {
       objects,
@@ -165,6 +195,27 @@ export async function uploadObject(
     return await s3Client.send(command);
   } catch (error) {
     console.error(`Error uploading object ${key}:`, error);
+    throw error;
+  }
+}
+
+// Create a folder by uploading an empty object with the folder path
+export async function createFolder(config: BucketConfig, folderPath: string) {
+  try {
+    const s3Client = createS3Client(config);
+    // Ensure folder path ends with /
+    const normalizedPath = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
+
+    const command = new PutObjectCommand({
+      Bucket: config.name,
+      Key: normalizedPath,
+      Body: '',
+      ContentType: 'application/x-directory',
+    });
+
+    return await s3Client.send(command);
+  } catch (error) {
+    console.error(`Error creating folder ${folderPath}:`, error);
     throw error;
   }
 }

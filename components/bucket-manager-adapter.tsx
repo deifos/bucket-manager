@@ -8,10 +8,12 @@ import FilePagination from "@/components/file-pagination";
 interface FileObject {
   id: string;
   name: string;
+  path: string;
   type: string;
   size: number;
   lastModified: Date;
   thumbnailUrl: string | null;
+  isFolder: boolean;
 }
 
 interface PaginatedResult {
@@ -37,6 +39,8 @@ export function BucketManagerAdapter({
   const [isTruncated, setIsTruncated] = useState(false);
   const [totalCount, setTotalCount] = useState<number | undefined>(undefined);
   const [pageSize] = useState(100);
+  const [currentPrefix, setCurrentPrefix] = useState<string>("");
+  const [folderHistory, setFolderHistory] = useState<string[]>([]);
 
   // Ensure component is mounted before accessing browser APIs
   useEffect(() => {
@@ -47,9 +51,9 @@ export function BucketManagerAdapter({
     if (bucketId && isMounted) {
       fetchFiles();
     }
-  }, [bucketId, isMounted]);
+  }, [bucketId, isMounted, currentPrefix]);
 
-  const fetchFiles = async (token?: string) => {
+  const fetchFiles = async (token?: string, prefix?: string) => {
     setIsLoading(true);
     try {
       const url = new URL(
@@ -57,11 +61,17 @@ export function BucketManagerAdapter({
         window.location.origin
       );
 
-      // Add pagination parameters
+      // Add pagination and folder parameters
       if (token) {
         url.searchParams.append("continuationToken", token);
       }
       url.searchParams.append("maxKeys", pageSize.toString());
+
+      // Use prefix parameter or current prefix
+      const folderPrefix = prefix !== undefined ? prefix : currentPrefix;
+      if (folderPrefix) {
+        url.searchParams.append("prefix", folderPrefix);
+      }
 
       const response = await fetch(url.toString());
 
@@ -152,6 +162,32 @@ export function BucketManagerAdapter({
 
   const handlePageChange = (token?: string) => {
     fetchFiles(token);
+  };
+
+  const navigateToFolder = (folderPath: string) => {
+    // Add current prefix to history if we're not at root
+    if (currentPrefix) {
+      setFolderHistory(prev => [...prev, currentPrefix]);
+    }
+    setCurrentPrefix(folderPath);
+    setContinuationToken(undefined); // Reset pagination
+  };
+
+  const navigateBack = () => {
+    if (folderHistory.length > 0) {
+      const previousFolder = folderHistory[folderHistory.length - 1];
+      setFolderHistory(prev => prev.slice(0, -1));
+      setCurrentPrefix(previousFolder);
+    } else {
+      setCurrentPrefix("");
+    }
+    setContinuationToken(undefined); // Reset pagination
+  };
+
+  const navigateToRoot = () => {
+    setCurrentPrefix("");
+    setFolderHistory([]);
+    setContinuationToken(undefined); // Reset pagination
   };
 
   // Set up fetch proxy only on the client side
@@ -248,6 +284,11 @@ export function BucketManagerAdapter({
         onRefresh={() => fetchFiles()}
         bucketId={bucketId}
         bucketName={bucketName}
+        currentPrefix={currentPrefix}
+        folderHistory={folderHistory}
+        onNavigateToFolder={navigateToFolder}
+        onNavigateBack={navigateBack}
+        onNavigateToRoot={navigateToRoot}
       />
 
       <FilePagination
