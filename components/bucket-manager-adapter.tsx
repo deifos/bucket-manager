@@ -45,6 +45,7 @@ export function BucketManagerAdapter({
   const [pageSize] = useState(100);
   const [currentPrefix, setCurrentPrefix] = useState<string>("");
   const [folderHistory, setFolderHistory] = useState<string[]>([]);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   // Ensure component is mounted before accessing browser APIs
   useEffect(() => {
@@ -127,6 +128,8 @@ export function BucketManagerAdapter({
       });
 
       setFiles(formattedData);
+      // Clear any previous connection error
+      setConnectionError(null);
       // Call success callback if provided
       if (onSuccess) {
         onSuccess();
@@ -164,6 +167,8 @@ export function BucketManagerAdapter({
         });
       }
 
+      // Store the connection error
+      setConnectionError(errorMessage);
       // Call error callback if provided
       if (onError) {
         onError(errorMessage);
@@ -184,6 +189,7 @@ export function BucketManagerAdapter({
     }
     setCurrentPrefix(folderPath);
     setContinuationToken(undefined); // Reset pagination
+    setIsTruncated(false); // Reset truncation state
   };
 
   const navigateBack = () => {
@@ -195,12 +201,14 @@ export function BucketManagerAdapter({
       setCurrentPrefix("");
     }
     setContinuationToken(undefined); // Reset pagination
+    setIsTruncated(false); // Reset truncation state
   };
 
   const navigateToRoot = () => {
     setCurrentPrefix("");
     setFolderHistory([]);
     setContinuationToken(undefined); // Reset pagination
+    setIsTruncated(false); // Reset truncation state
   };
 
   // Set up fetch proxy only on the client side
@@ -302,12 +310,14 @@ export function BucketManagerAdapter({
         onNavigateToFolder={navigateToFolder}
         onNavigateBack={navigateBack}
         onNavigateToRoot={navigateToRoot}
+        connectionError={connectionError}
       />
 
       <FilePagination
         isTruncated={isTruncated}
         continuationToken={continuationToken}
         onPageChange={handlePageChange}
+        resetKey={currentPrefix}
       />
     </div>
   );

@@ -77,6 +77,7 @@ interface BucketManagerProps {
   onNavigateToFolder?: (folderPath: string) => void;
   onNavigateBack?: () => void;
   onNavigateToRoot?: () => void;
+  connectionError?: string | null;
 }
 
 export function BucketManager({
@@ -90,6 +91,7 @@ export function BucketManager({
   onNavigateToFolder,
   onNavigateBack,
   onNavigateToRoot,
+  connectionError,
 }: BucketManagerProps = {}) {
   const [files, setFiles] = useState<FileObject[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
@@ -319,6 +321,11 @@ export function BucketManager({
         const formData = new FormData();
         formData.append("file", file);
 
+        // Include the current folder prefix so files are uploaded to the current folder
+        if (currentPrefix) {
+          formData.append("prefix", currentPrefix);
+        }
+
         const endpoint = bucketId
           ? `/api/buckets/${bucketId}/objects`
           : "/api/objects";
@@ -336,7 +343,7 @@ export function BucketManager({
       // Refresh the file list
       handleRefresh();
 
-      toast.success(`${files.length} file(s) have been uploaded`);
+      toast.success(`${files.length} file(s) have been uploaded to ${currentPrefix ? currentPrefix.replace(/\/$/, '') : 'root'}`);
     } catch (error) {
       console.error("Error uploading files:", error);
       toast.error("Failed to upload files");
@@ -566,6 +573,41 @@ export function BucketManager({
           </div>
         </div>
       )}
+
+      {/* Connection Error Overlay */}
+      {connectionError && (
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-40 rounded-md border border-destructive/20">
+          <div className="flex flex-col items-center justify-center h-full p-8">
+            <div className="flex flex-col items-center gap-4 bg-card p-8 rounded-lg border border-destructive/20 shadow-lg max-w-md">
+              <div className="flex items-center gap-3 text-destructive">
+                <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                  <RefreshCw className="h-6 w-6" />
+                </div>
+                <div className="text-xl font-semibold">Connection Failed</div>
+              </div>
+              <div className="text-center space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  Unable to connect to the bucket:
+                </div>
+                <div className="text-sm bg-muted p-3 rounded border font-mono">
+                  {connectionError}
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+                  Retry Connection
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-1 mb-2">
         {bucketName && (
           <div className="flex items-center gap-2">
@@ -584,6 +626,7 @@ export function BucketManager({
             className="h-6 px-2"
             onClick={onNavigateToRoot}
             title="Go to root"
+            disabled={connectionError !== null}
           >
             <Home className="h-3 w-3" />
           </Button>
@@ -596,6 +639,7 @@ export function BucketManager({
                 className="h-6 px-2 text-muted-foreground hover:text-foreground"
                 onClick={() => onNavigateToFolder && onNavigateToFolder(segment.path)}
                 title={`Navigate to ${segment.name}`}
+                disabled={connectionError !== null}
               >
                 {segment.name}
               </Button>
@@ -613,6 +657,7 @@ export function BucketManager({
               size="sm"
               onClick={onNavigateBack}
               title="Go back"
+              disabled={connectionError !== null}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
@@ -622,7 +667,7 @@ export function BucketManager({
             variant="destructive"
             size="sm"
             onClick={() => setIsDeleteDialogOpen(true)}
-            disabled={selectedFiles.length === 0 || isDeleting || isLoading}
+            disabled={selectedFiles.length === 0 || isDeleting || isLoading || connectionError !== null}
           >
             {isDeleting ? (
               <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
@@ -634,7 +679,7 @@ export function BucketManager({
           <Button
             variant="outline"
             size="sm"
-            disabled={selectedFiles.length !== 1 || isDeleting || isLoading}
+            disabled={selectedFiles.length !== 1 || isDeleting || isLoading || connectionError !== null}
             onClick={() => {
               if (selectedFiles.length === 1) {
                 const selectedFile = sortedFiles.find(
@@ -658,7 +703,7 @@ export function BucketManager({
                 className="hidden"
                 multiple
                 onChange={handleUpload}
-                disabled={isLoading || isDeleting}
+                disabled={isLoading || isDeleting || connectionError !== null}
               />
             </label>
           </Button>
@@ -666,7 +711,7 @@ export function BucketManager({
             variant="outline"
             size="sm"
             onClick={() => setIsCreateFolderOpen(true)}
-            disabled={isLoading || isDeleting}
+            disabled={isLoading || isDeleting || connectionError !== null}
           >
             <FolderPlus className="h-4 w-4 mr-2" />
             New Folder
@@ -676,7 +721,7 @@ export function BucketManager({
           variant="outline"
           size="icon"
           onClick={handleRefresh}
-          disabled={isLoading || isDeleting}
+          disabled={isDeleting || (isLoading && !connectionError)}
         >
           <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
         </Button>
@@ -700,6 +745,7 @@ export function BucketManager({
                       ? "indeterminate"
                       : undefined
                   }
+                  disabled={connectionError !== null}
                 />
               </TableHead>
               <TableHead className="w-[35%]">File</TableHead>
@@ -725,8 +771,8 @@ export function BucketManager({
               sortedFiles.map((file) => (
                 <TableRow
                   key={file.id}
-                  className={file.isFolder ? "cursor-pointer" : ""}
-                  onDoubleClick={() => file.isFolder && handleFolderDoubleClick(file.path)}
+                  className={file.isFolder && connectionError === null ? "cursor-pointer" : ""}
+                  onDoubleClick={() => file.isFolder && connectionError === null && handleFolderDoubleClick(file.path)}
                 >
                   <TableCell>
                     <Checkbox
@@ -735,6 +781,7 @@ export function BucketManager({
                         handleSelectFile(file.id, !!checked)
                       }
                       aria-label={`Select ${file.name}`}
+                      disabled={connectionError !== null}
                     />
                   </TableCell>
                   <TableCell className="font-medium">
@@ -742,8 +789,9 @@ export function BucketManager({
                       {renderThumbnail(file)}
                       <button
                         className="hover:underline text-left truncate max-w-[320px]"
-                        onClick={() => file.isFolder ? handleFolderClick(file.path) : handlePreview(file)}
+                        onClick={() => connectionError === null && (file.isFolder ? handleFolderClick(file.path) : handlePreview(file))}
                         title={file.name}
+                        disabled={connectionError !== null}
                       >
                         {file.name}
                       </button>
@@ -764,11 +812,12 @@ export function BucketManager({
                           size="icon"
                           variant="ghost"
                           className="h-8 w-8"
+                          disabled={connectionError !== null}
                         />
                       )}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" disabled={connectionError !== null}>
                             <MoreVertical className="h-4 w-4" />
                             <span className="sr-only">Open menu</span>
                           </Button>

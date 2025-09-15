@@ -14,12 +14,14 @@ interface FilePaginationProps {
   isTruncated: boolean;
   continuationToken?: string;
   onPageChange: (token?: string) => void;
+  resetKey?: string; // Used to trigger pagination reset when folder changes
 }
 
 export default function FilePagination({
   isTruncated,
   continuationToken,
   onPageChange,
+  resetKey,
 }: FilePaginationProps) {
   const [pageHistory, setPageHistory] = useState<
     { token?: string; page: number }[]
@@ -60,11 +62,11 @@ export default function FilePagination({
     }
   };
 
-  // Reset pagination when the component mounts or remounts
+  // Reset pagination when the component mounts or when resetKey changes (e.g., folder navigation)
   useEffect(() => {
     setPageHistory([{ token: undefined, page: 1 }]);
     setCurrentPageIndex(0);
-  }, []);
+  }, [resetKey]);
 
   return (
     <Pagination className="mt-4">

@@ -12,6 +12,7 @@ interface CopyUrlButtonProps {
   size?: "default" | "sm" | "lg" | "icon";
   variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   className?: string;
+  disabled?: boolean;
 }
 
 export function CopyUrlButton({
@@ -21,6 +22,7 @@ export function CopyUrlButton({
   size = "icon",
   variant = "ghost",
   className = "",
+  disabled = false,
 }: CopyUrlButtonProps) {
   const [isCopying, setIsCopying] = useState(false);
   const [justCopied, setJustCopied] = useState(false);
@@ -66,7 +68,7 @@ export function CopyUrlButton({
       size={size}
       className={`transition-colors ${className}`}
       onClick={handleCopyUrl}
-      disabled={isCopying}
+      disabled={isCopying || disabled}
       title={`Copy URL for ${fileName}`}
     >
       {justCopied ? (

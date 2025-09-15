@@ -65,6 +65,7 @@ export async function POST(
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const prefix = formData.get("prefix") as string;
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
@@ -75,12 +76,15 @@ export async function POST(
     const contentType = file.type;
     const filename = file.name;
 
+    // Construct full key path with folder prefix
+    const key = prefix ? `${prefix}${filename}` : filename;
+
     // Get appropriate client and upload
     const storageClient = getStorageClient(bucketConfig);
-    await storageClient.uploadObject(filename, buffer, contentType);
+    await storageClient.uploadObject(key, buffer, contentType);
 
     return NextResponse.json(
-      { message: "File uploaded successfully", filename },
+      { message: "File uploaded successfully", filename, key },
       { status: 201 }
     );
   } catch (error) {
